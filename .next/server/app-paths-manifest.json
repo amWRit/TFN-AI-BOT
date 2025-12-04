@@ -1,0 +1,4 @@
+{
+  "/api/rag-alumni/route": "app/api/rag-alumni/route.js",
+  "/page": "app/page.js"
+}
