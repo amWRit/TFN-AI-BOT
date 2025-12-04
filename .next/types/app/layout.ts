@@ -1,4 +1,4 @@
-// File: C:\Users\ark\Desktop\PythonSrc\Alumni-RAG-Project -Vercel\app\layout.js
+// File: C:\Users\ark\Desktop\PythonSrc\TFN-AI-BOT\app\layout.js
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
