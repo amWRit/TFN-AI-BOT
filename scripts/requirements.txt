@@ -1,0 +1,8 @@
+pypdf
+langchain-text-splitters
+langchain-community
+langchain-core
+langchain-aws
+boto3
+faiss-cpu
+python-dotenv

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "doc_0",
+    "content": "Leapfrog Technology core values: Innovation, Integrity, Impact, Collaboration, and Continuous Learning. These values guide all our decisions and actions. We believe in pushing technological boundaries while maintaining the highest ethical standards.",
+    "source": "LF-Policy.pdf",
+    "type": "pdf",
+    "page": 1
+  },
+  {
+    "id": "doc_1",
+    "content": "Nomination Guidelines for Teaching Excellence Awards: Candidates must demonstrate exceptional classroom performance, innovative teaching methods, and measurable student impact. Applications require 3 letters of recommendation and a teaching portfolio. Deadline: December 15th.",
+    "source": "nomination_guidelines_gdoc",
+    "type": "gdoc",
+    "page": null
+  },
+  {
+    "id": "doc_2",
+    "content": "Code of Conduct: All Leapfrog employees must maintain professionalism, respect diversity, and report harassment immediately to HR. Violations may result in immediate termination. Annual training is mandatory for all staff.",
+    "source": "LF-Policy.pdf",
+    "type": "pdf",
+    "page": 5
+  },
+  {
+    "id": "doc_3",
+    "content": "Anti-Harassment Policy: Leapfrog maintains a zero-tolerance policy for harassment. This includes but is not limited to verbal, physical, and online harassment. Anonymous reporting available through ethics hotline.",
+    "source": "LF-Policy.pdf",
+    "type": "pdf",
+    "page": 7
+  },
+  {
+    "id": "doc_4",
+    "content": "Fellowship Program Overview: 2-year teaching fellowship for exceptional educators. Stipend: NPR 50,000/month. Locations: Kathmandu, Pokhara, Biratnagar. Requirements: Bachelor's degree, 2+ years teaching experience.",
+    "source": "fellowship_program_gdoc",
+    "type": "gdoc",
+    "page": null
+  },
+  {
+    "id": "doc_5",
+    "content": "Alumni Benefits: Access to job board, professional development workshops, networking events, and mentorship programs. Alumni network includes 500+ fellows across Nepal.",
+    "source": "alumni_handbook.pdf",
+    "type": "pdf",
+    "page": 2
+  }
+]
