@@ -120,7 +120,7 @@ export default function Home() {
                       <Zap className="w-12 h-12 text-cyan-300" />
                     </div>
                   </div>
-                  <h2 className="text-5xl md:text-6xl font-black bg-gradient-to-r from-purple-200 via-pink-200 to-cyan-200 bg-clip-text text-transparent">
+                  <h2 className="block text-5xl md:text-6xl font-black bg-gradient-to-r from-purple-200 via-pink-200 to-cyan-200 bg-clip-text text-transparent">
                     How can I help?
                   </h2>
                   <p className="text-lg text-gray-300 leading-relaxed max-w-xl mx-auto">
@@ -129,30 +129,56 @@ export default function Home() {
                 </div>
 
                 {/* Quick Actions */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pt-4 auto-rows-max">
                   <button
-                    onClick={() => processQuery('What are the key TFN programs?')}
-                    className="group p-6 rounded-xl bg-gradient-to-br from-purple-600/20 to-purple-900/20 border border-purple-400/30 hover:border-purple-400/60 hover:bg-gradient-to-br hover:from-purple-600/40 hover:to-purple-900/40 transition-all text-left"
+                    onClick={() => processQuery('Tell me more about the TFN fellowship program.')}
+                    className="group h-32 p-4 rounded-xl bg-gradient-to-br from-purple-600/20 to-purple-900/20 border border-purple-400/30 hover:border-purple-400/60 hover:bg-gradient-to-br hover:from-purple-600/40 hover:to-purple-900/40 transition-all text-left flex flex-col justify-between"
                   >
-                    <div className="text-3xl mb-3">📚</div>
-                    <div className="font-bold text-white mb-1">Programs</div>
-                    <div className="text-sm text-gray-400">Learn about key offerings</div>
+                    <div className="text-3xl mb-2">🎓</div>
+                    <div>
+                      <div className="font-bold text-white mb-1 text-sm leading-tight line-clamp-1">Fellowship</div>
+                      <div className="text-xs text-gray-400 line-clamp-1">More about it</div>
+                    </div>
                   </button>
                   <button
-                    onClick={() => processQuery('How do I submit a nomination?')}
-                    className="group p-6 rounded-xl bg-gradient-to-br from-cyan-600/20 to-cyan-900/20 border border-cyan-400/30 hover:border-cyan-400/60 hover:bg-gradient-to-br hover:from-cyan-600/40 hover:to-cyan-900/40 transition-all text-left"
+                    onClick={() => processQuery('Who can apply? What are the eligibility requirements?')}
+                    className="group h-32 p-4 rounded-xl bg-gradient-to-br from-cyan-600/20 to-cyan-900/20 border border-cyan-400/30 hover:border-cyan-400/60 hover:bg-gradient-to-br hover:from-cyan-600/40 hover:to-cyan-900/40 transition-all text-left flex flex-col justify-between"
                   >
-                    <div className="text-3xl mb-3">📝</div>
-                    <div className="font-bold text-white mb-1">Nominations</div>
-                    <div className="text-sm text-gray-400">Submission process</div>
+                    <div className="text-3xl mb-2">✅</div>
+                    <div>
+                      <div className="font-bold text-white mb-1 text-sm leading-tight line-clamp-1">Eligibility</div>
+                      <div className="text-xs text-gray-400 line-clamp-1">Who can apply</div>
+                    </div>
                   </button>
                   <button
-                    onClick={() => processQuery('What are TFN eligibility requirements?')}
-                    className="group p-6 rounded-xl bg-gradient-to-br from-pink-600/20 to-pink-900/20 border border-pink-400/30 hover:border-pink-400/60 hover:bg-gradient-to-br hover:from-pink-600/40 hover:to-pink-900/40 transition-all text-left"
+                    onClick={() => processQuery('What is the process to apply for TFN Fellowship?')}
+                    className="group h-32 p-4 rounded-xl bg-gradient-to-br from-pink-600/20 to-pink-900/20 border border-pink-400/30 hover:border-pink-400/60 hover:bg-gradient-to-br hover:from-pink-600/40 hover:to-pink-900/40 transition-all text-left flex flex-col justify-between"
                   >
-                    <div className="text-3xl mb-3">✅</div>
-                    <div className="font-bold text-white mb-1">Eligibility</div>
-                    <div className="text-sm text-gray-400">Who can apply</div>
+                    <div className="text-3xl mb-2">📝</div>
+                    <div>
+                      <div className="font-bold text-white mb-1 text-sm leading-tight line-clamp-1">Application</div>
+                      <div className="text-xs text-gray-400 line-clamp-1">Process</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => processQuery('What is TFN\'s vision for ending education equity?')}
+                    className="group h-32 p-4 rounded-xl bg-gradient-to-br from-blue-600/20 to-blue-900/20 border border-blue-400/30 hover:border-blue-400/60 hover:bg-gradient-to-br hover:from-blue-600/40 hover:to-blue-900/40 transition-all text-left flex flex-col justify-between"
+                  >
+                    <div className="text-3xl mb-2">🎯</div>
+                    <div>
+                      <div className="font-bold text-white mb-1 text-sm leading-tight line-clamp-1">Vision</div>
+                      <div className="text-xs text-gray-400 line-clamp-1">Ending education equity</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => processQuery('What happens after the 2 years of the fellowship?')}
+                    className="group h-32 p-4 rounded-xl bg-gradient-to-br from-amber-600/20 to-amber-900/20 border border-amber-400/30 hover:border-amber-400/60 hover:bg-gradient-to-br hover:from-amber-600/40 hover:to-amber-900/40 transition-all text-left flex flex-col justify-between"
+                  >
+                    <div className="text-3xl mb-2">🚀</div>
+                    <div>
+                      <div className="font-bold text-white mb-1 text-sm leading-tight line-clamp-1">Beyond</div>
+                      <div className="text-xs text-gray-400 line-clamp-1">After 2 years</div>
+                    </div>
                   </button>
                 </div>
               </div>
@@ -191,7 +217,7 @@ export default function Home() {
                                 <div className="flex items-start gap-2">
                                   <span>📄</span>
                                   <div>
-                                    <p className="font-semibold text-white/90">{source.source}</p>
+                                    <p className="font-semibold text-white/90">{source.source.split(/[\\\/]/).pop()}</p>
                                     <p className="text-xs text-white/50">Page {source.page}</p>
                                   </div>
                                 </div>
