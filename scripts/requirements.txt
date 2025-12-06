@@ -1,8 +1,12 @@
 pypdf
+PyPDF2
+langchain
 langchain-text-splitters
 langchain-community
 langchain-core
 langchain-aws
 boto3
+pydantic
 faiss-cpu
 python-dotenv
+rich
