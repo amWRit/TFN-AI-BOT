@@ -138,7 +138,7 @@ class DocumentPreprocessor:
     
     def _init_aws_and_llm(self):
         """Initialize AWS Bedrock client and LLM."""
-        env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+        env_path = os.path.join(os.path.dirname(__file__), '..', '.env.local')
         load_dotenv(env_path)
         
         AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
