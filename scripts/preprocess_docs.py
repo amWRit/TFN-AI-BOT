@@ -7,220 +7,479 @@ Usage:
     python scripts/preprocess_docs.py
 
 Requirements:
-    pip install pypdf langchain-text-splitters langchain-community langchain-aws boto3 faiss-cpu python-dotenv
+    pip install langchain-text-splitters langchain-community langchain-aws boto3 faiss-cpu python-dotenv
 """
 
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_aws import BedrockEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
-import json
 import os
-from pathlib import Path
+import json
+import argparse
+import shutil
+import boto3
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field
+from langchain_core.documents import Document
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_aws import BedrockEmbeddings, ChatBedrock
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.vectorstores import FAISS
 
-# Load environment variables from .env.local file
-load_dotenv('.env.local')
 
-def load_and_process_pdfs(pdf_folder="./data"):
+# ==================== Pydantic Models ====================
+
+class StaffMember(BaseModel):
+    name: str = Field(description="name of the staff member")
+    role: str = Field(description="role or designation of the staff member")
+    bio: str = Field(description="short biography or description of the staff member")
+
+class StaffData(BaseModel):
+    staff_members: list[StaffMember] = Field(description="List of staff members with their name, role, and bio")
+
+class Contact(BaseModel):
+    name: str = Field(description="name of the contact person")
+    email: str = Field(description="email address")
+    phone: str = Field(description="phone number")
+    organization: str = Field(description="organization or company name")
+
+class ContactData(BaseModel):
+    contacts: list[Contact] = Field(description="List of contacts with their details")
+
+class Partner(BaseModel):
+    name: str = Field(description="name of the partner organization")
+    type: str = Field(description="type of partnership (e.g., technology partner, strategic partner)")
+    description: str = Field(description="description of the partnership")
+    contact_person: str = Field(description="main contact person at the partner organization")
+
+class PartnerData(BaseModel):
+    partners: list[Partner] = Field(description="List of partner organizations with their details")
+
+
+# ==================== Configuration & Constants ====================
+
+# AWS Bedrock Models
+BEDROCK_LLM_MODEL_ID = "amazon.nova-lite-v1:0"
+BEDROCK_EMBEDDINGS_MODEL_ID = "amazon.titan-embed-text-v2:0"
+
+# Text Splitting Configuration
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 200
+
+# File Extensions
+PDF_EXTENSION = ".pdf"
+
+# Document Type Configuration
+DOCUMENT_TYPES_CONFIG = {
+    "staff.pdf": {
+        "pydantic_model": StaffData,
+        "extraction_field": "staff_members",
+        "system_prompt": "Extract information about staff members from the provided text. Ensure the output is a JSON list of staff members following the schema below:\n{format_instructions}",
+        "metadata_fields": ["name", "role"]
+    },
+    "contacts.pdf": {
+        "pydantic_model": ContactData,
+        "extraction_field": "contacts",
+        "system_prompt": "Extract contact information from the provided text. Ensure the output is a JSON list of contacts following the schema below:\n{format_instructions}",
+        "metadata_fields": ["name", "email"]
+    },
+    "partners-and-supporters.pdf": {
+        "pydantic_model": PartnerData,
+        "extraction_field": "partners",
+        "system_prompt": "Extract partner information from the provided text. Ensure the output is a JSON list of partners following the schema below:\n{format_instructions}",
+        "metadata_fields": ["name", "type"]
+    }
+}
+
+
+# ==================== DocumentPreprocessor Class ====================
+
+class DocumentPreprocessor:
     """
-    Load PDFs from folder and process them into chunks
-    
-    Args:
-        pdf_folder: Folder containing PDF files (default: ./data)
-    
-    Returns:
-        Tuple of (docs_json, langchain_documents)
+    A modular class for preprocessing documents and building FAISS vector store.
     """
     
-    # Find all PDF files
-    pdf_files = list(Path(pdf_folder).glob("*.pdf"))
-    
-    if not pdf_files:
-        print("❌ No PDF files found in ./data folder")
-        print("   Place your PDF files in the data/ folder")
-        return [], []
-    
-    print(f"📄 Found {len(pdf_files)} PDF file(s):\n")
-    
-    all_docs = []
-    for pdf_path in pdf_files:
-        try:
-            print(f"   📖 Processing: {pdf_path.name}")
-            loader = PyPDFLoader(str(pdf_path))
-            docs = loader.load()
-            all_docs.extend(docs)
-            print(f"      ✓ Loaded {len(docs)} pages\n")
-        except Exception as e:
-            print(f"      ❌ Error loading {pdf_path.name}: {e}\n")
-            continue
-    
-    if not all_docs:
-        print("❌ No documents loaded from PDFs")
-        return [], []
-    
-    print(f"✓ Total {len(all_docs)} pages loaded")
-    
-    # Chunk documents for RAG
-    print("\n🔪 Chunking documents...")
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200
-    )
-    chunks = splitter.split_documents(all_docs)
-    print(f"✓ Created {len(chunks)} chunks")
-    
-    # Convert to JSON format for Next.js
-    print("\n💾 Converting to JSON format...")
-    docs_json = []
-    langchain_docs = []
-    
-    for i, chunk in enumerate(chunks):
-        # JSON format (for backward compatibility)
-        docs_json.append({
-            "id": f"doc_{i}",
-            "content": chunk.page_content,
-            "source": chunk.metadata.get("source", "unknown").split("/")[-1],
-            "type": "pdf",
-            "page": chunk.metadata.get("page", 0) + 1
-        })
+    def __init__(self, 
+                 unstructured_dir=None,
+                 structured_dir=None,
+                 faiss_dir=None,
+                 output_json=None):
+        """
+        Initialize the preprocessor with directory paths.
+        Paths are relative to the project root (parent of scripts folder).
+        """
+        # Get project root directory (parent of scripts folder)
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
-        # LangChain Document format (for embeddings)
-        langchain_docs.append(Document(
-            page_content=chunk.page_content,
-            metadata={
-                "id": f"doc_{i}",
-                "source": chunk.metadata.get("source", "unknown").split("/")[-1],
-                "type": "pdf",
-                "page": chunk.metadata.get("page", 0) + 1
-            }
-        ))
-    
-    return docs_json, langchain_docs
-
-def create_embeddings_and_vectorstore(documents, output_dir="./public/vector-store"):
-    """
-    Create embeddings and save vector store to disk using FAISS
-    
-    Args:
-        documents: List of LangChain Document objects
-        output_dir: Directory to save vector store
-    """
-    
-    print("\n🧠 Creating embeddings with AWS Bedrock...")
-    print("   (This may take 20-60 seconds depending on document count)")
-    
-    try:
-        # Initialize Bedrock Embeddings
-        embeddings = BedrockEmbeddings(
-            model_id="amazon.titan-embed-text-v2:0",
-            region_name=os.getenv("AWS_REGION", "us-east-1")
+        # Set default paths relative to project root
+        self.unstructured_dir = unstructured_dir or os.path.join(project_root, "data", "unstructured")
+        self.structured_dir = structured_dir or os.path.join(project_root, "data", "structured")
+        self.faiss_dir = faiss_dir or os.path.join(project_root, "public", "vector-store")
+        self.output_json = output_json or os.path.join(project_root, "public", "all_structured_data.json")
+        self.faiss_index_path = os.path.join(self.faiss_dir, "index.faiss")
+        
+        # Initialize AWS and LLM
+        self._init_aws_and_llm()
+        
+        # Initialize embeddings
+        self.embeddings = BedrockEmbeddings(
+            client=self.bedrock_client,
+            model_id=BEDROCK_EMBEDDINGS_MODEL_ID
         )
         
-        # Create vector store with FAISS
-        print("   📊 Building FAISS vector store...")
-        vectorstore = FAISS.from_documents(documents, embeddings)
+        # Initialize text splitter
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=CHUNK_SIZE,
+            chunk_overlap=CHUNK_OVERLAP
+        )
         
-        # Save to disk
-        os.makedirs(output_dir, exist_ok=True)
-        vectorstore.save_local(output_dir)
+        # Create directories
+        self._create_directories()
+    
+    def _init_aws_and_llm(self):
+        """Initialize AWS Bedrock client and LLM."""
+        env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+        load_dotenv(env_path)
         
-        # Convert docstore to JSON for Node.js compatibility
-        import pickle
-        pkl_path = os.path.join(output_dir, "index.pkl")
-        json_path = os.path.join(output_dir, "docstore.json")
+        AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+        AWS_SESSION_TOKEN = os.getenv('AWS_SESSION_TOKEN')
+        AWS_REGION = os.getenv('AWS_REGION')
+        
+        print(f"[DEBUG] AWS_REGION: '{AWS_REGION}'")
+        print(f"[DEBUG] AWS_ACCESS_KEY_ID: {'OK' if AWS_ACCESS_KEY_ID else 'MISSING'}")
+        print(f"[DEBUG] AWS_SECRET_ACCESS_KEY: {'OK' if AWS_SECRET_ACCESS_KEY else 'MISSING'}")
+    
+        if not all([AWS_REGION, AWS_SECRET_ACCESS_KEY, AWS_ACCESS_KEY_ID]):
+            raise ValueError("AWS credentials missing from .env!")
+    
+        self.bedrock_client = boto3.client(
+            service_name="bedrock-runtime",
+            region_name=AWS_REGION,
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+            aws_session_token=AWS_SESSION_TOKEN,
+        )
+        
+        self.llm = ChatBedrock(
+            client=self.bedrock_client,
+            model_id=BEDROCK_LLM_MODEL_ID,
+            temperature=0
+        )
+    
+    def _create_directories(self):
+        """Create required directories."""
+        os.makedirs(self.unstructured_dir, exist_ok=True)
+        os.makedirs(self.structured_dir, exist_ok=True)
+    
+    def _is_index_exists(self):
+        """Check if FAISS index already exists."""
+        return os.path.exists(self.faiss_index_path)
+    
+    def process_unstructured_data(self):
+        """Process unstructured PDF documents and return chunks."""
+        print("\n[*] Processing unstructured data...")
+        all_chunks = []
+        
+        for filename in os.listdir(self.unstructured_dir):
+            if filename.endswith(PDF_EXTENSION):
+                pdf_path = os.path.join(self.unstructured_dir, filename)
+                try:
+                    loader = PyPDFLoader(pdf_path)
+                    documents = loader.load()
+                    chunks = self.text_splitter.split_documents(documents)
+                    all_chunks.extend(chunks)
+                    print(f"    [+] {filename}: {len(documents)} pages -> {len(chunks)} chunks")
+                except Exception as e:
+                    print(f"    [-] Error processing {filename}: {str(e)}")
+        
+        print(f"[+] Total unstructured chunks: {len(all_chunks)}")
+        return all_chunks
+    
+    def _extract_structured_from_file(self, filename):
+        """Extract structured data from a single PDF file."""
+        if filename not in DOCUMENT_TYPES_CONFIG:
+            print(f"    [!] No configuration for {filename}. Skipping...")
+            return {}
+        
+        config = DOCUMENT_TYPES_CONFIG[filename]
+        pdf_path = os.path.join(self.structured_dir, filename)
         
         try:
-            with open(pkl_path, 'rb') as f:
-                docstore_data = pickle.load(f)
+            # Load PDF and extract text
+            loader = PyPDFLoader(pdf_path)
+            documents = loader.load()
+            raw_text = "\n".join([doc.page_content for doc in documents])
             
-            # Convert to JSON-serializable format
-            docstore_json = {}
-            if hasattr(docstore_data, '_dict'):
-                # InMemoryDocstore format
-                for key, doc in docstore_data._dict.items():
-                    docstore_json[key] = {
-                        "pageContent": doc.page_content,
-                        "metadata": doc.metadata
-                    }
+            print(f"    [*] Processing {filename} ({len(raw_text)} chars)")
             
-            with open(json_path, 'w', encoding='utf-8') as f:
-                json.dump(docstore_json, f, ensure_ascii=False, indent=2)
+            # Setup extraction chain
+            pydantic_model = config["pydantic_model"]
+            parser = PydanticOutputParser(pydantic_object=pydantic_model)
             
-            print(f"   ✓ Converted docstore to JSON format")
-        except Exception as e:
-            print(f"   ⚠️  Could not convert docstore to JSON: {e}")
-        
-        print(f"✅ Vector store saved to {output_dir}/")
-        print(f"   Files created:")
-        print(f"   - {output_dir}/index.pkl (Python format)")
-        print(f"   - {output_dir}/index.faiss (FAISS index)")
-        print(f"   - {output_dir}/docstore.json (Node.js format)")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error creating embeddings: {e}")
-        print("\n⚠️  Make sure you have:")
-        print("   1. AWS credentials configured (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)")
-        print("   2. AWS_REGION set in your environment")
-        print("   3. Bedrock access enabled for amazon.titan-embed-text-v2:0")
-        print("   4. faiss-cpu installed: pip install faiss-cpu")
-        return False
+            # IMPROVED PROMPT - Force complete objects
+            system_prompt = config["system_prompt"].format(
+                format_instructions=parser.get_format_instructions()
+            )
+            full_prompt = f"""{system_prompt}
 
-def save_documents_json(docs, output_path="./public/tfn-documents.json"):
-    """
-    Save processed documents to JSON file (backward compatibility)
+    IMPORTANT: 
+    - Include ALL fields for EVERY item (name, role, bio for staff)
+    - If bio info missing, use "No biography available" 
+    - Return COMPLETE valid JSON only
+
+    Document text to analyze:
+    {raw_text}"""
+            
+            response = self.bedrock_client.converse(
+                modelId=BEDROCK_LLM_MODEL_ID,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [{"text": full_prompt}]
+                    }
+                ],
+                inferenceConfig={
+                    "maxTokens": 4000,  # Increased for complete output
+                    "temperature": 0.0
+                }
+            )
+            
+            output_text = response['output']['message']['content'][0]['text']
+            
+            # ROBUST PARSING - Handle partial failures
+            try:
+                extracted_data = parser.parse(output_text)
+                items = getattr(extracted_data, config["extraction_field"])
+            except Exception as parse_error:
+                print(f"    [!] Parser failed: {parse_error}")
+                print(f"    [!] Raw output preview: {output_text[:200]}...")
+                # Fallback: extract what we can
+                items = []
+                return {
+                    "filename": filename,
+                    "field_name": config["extraction_field"],
+                    "items": items,
+                    "config": config
+                }
+            
+            print(f"    [+] Extracted {len(items)} items from {filename}")
+            
+            return {
+                "filename": filename,
+                "field_name": config["extraction_field"],
+                "items": items,
+                "config": config
+            }
+        except Exception as e:
+            print(f"    [-] Error extracting from {filename}: {str(e)}")
+            return {}
+
     
-    Args:
-        docs: List of document chunks
-        output_path: Output file path
-    """
+    def process_structured_data(self):
+        """Process structured PDF documents and return extracted data."""
+        print("\n[*] Processing structured data...")
+        extracted_results = []
+        
+        for filename in os.listdir(self.structured_dir):
+            if filename.endswith(PDF_EXTENSION):
+                result = self._extract_structured_from_file(filename)
+                if result:
+                    extracted_results.append(result)
+        
+        print(f"[+] Total structured files processed: {len(extracted_results)}")
+        return extracted_results
     
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    def save_structured_data(self, extracted_results):
+        """Save extracted structured data to JSON file."""
+        output_data = {}
+        for result in extracted_results:
+            field_name = result["field_name"]
+            items = result["items"]
+            output_data[field_name] = [item.model_dump() for item in items]
+        
+        with open(self.output_json, "w") as f:
+            json.dump(output_data, f, indent=2)
+        
+        print(f"[+] Structured data saved to {self.output_json}")
     
-    try:
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(docs, f, indent=2, ensure_ascii=False)
-        print(f"✅ Exported {len(docs)} chunks to {output_path}")
-        return True
-    except Exception as e:
-        print(f"❌ Error saving JSON: {e}")
-        return False
+    def convert_to_documents(self, extracted_results):
+        """Convert extracted structured data to Document objects."""
+        print("\n[*] Converting structured data to documents...")
+        documents = []
+        
+        for result in extracted_results:
+            filename = result["filename"]
+            field_name = result["field_name"]
+            items = result["items"]
+            config = result["config"]
+            metadata_fields = config["metadata_fields"]
+            
+            for item in items:
+                item_dict = item.model_dump()
+                
+                # Create document content
+                content = "\n".join([f"{key}: {value}" for key, value in item_dict.items()])
+                
+                # Create metadata
+                metadata = {"source": filename, "type": field_name}
+                for field in metadata_fields:
+                    if field in item_dict:
+                        metadata[field] = str(item_dict[field])
+                
+                documents.append(Document(page_content=content, metadata=metadata))
+        
+        print(f"[+] Converted {len(documents)} items to Document objects")
+        return documents
+    
+    def create_faiss_index(self, documents):
+        """Create and save FAISS index from documents."""
+        print(f"\n[*] Creating FAISS index at {self.faiss_dir}...")
+        
+        db = FAISS.from_documents(
+            documents=documents,
+            embedding=self.embeddings
+        )
+        db.save_local(self.faiss_dir)
+        
+        print(f"[+] FAISS index created with {len(documents)} documents")
+        return db
+    
+    def load_faiss_index(self):
+        """Load existing FAISS index."""
+        print(f"\n[*] Loading existing FAISS index from {self.faiss_dir}...")
+        
+        db = FAISS.load_local(
+            folder_path=self.faiss_dir,
+            embeddings=self.embeddings,
+            allow_dangerous_deserialization=True
+        )
+        
+        print(f"[+] FAISS index loaded with {db.index.ntotal} documents")
+        return db
+    
+    def rebuild_index(self):
+        """Force rebuild the FAISS index (delete and recreate)."""
+        print("\n[!] Rebuilding FAISS index...")
+        
+        # Delete existing index if present
+        if self._is_index_exists():
+            shutil.rmtree(self.faiss_dir, ignore_errors=True)
+            print(f"[+] Deleted old FAISS index at {self.faiss_dir}")
+        
+        # Process documents
+        print("\n[!] Reprocessing all documents...")
+        unstructured_chunks = self.process_unstructured_data()
+        extracted_results = self.process_structured_data()
+        
+        # Save and convert structured data
+        self.save_structured_data(extracted_results)
+        structured_documents = self.convert_to_documents(extracted_results)
+        
+        # Combine and create new index
+        all_documents = unstructured_chunks + structured_documents
+        print(f"\n[+] Total documents: {len(all_documents)}")
+        db = self.create_faiss_index(all_documents)
+        
+        # Print summary
+        self._print_summary(db)
+        return db
+    
+    def run(self):
+        """Main preprocessing pipeline."""
+        print("="*80)
+        print("Document Preprocessing Pipeline")
+        print("="*80)
+        
+        # Check if index exists
+        if self._is_index_exists():
+            print("\n[!] FAISS index already exists. Skipping preprocessing.")
+            db = self.load_faiss_index()
+        else:
+            print("\n[!] FAISS index not found. Creating new index...")
+            
+            # Process documents
+            unstructured_chunks = self.process_unstructured_data()
+            extracted_results = self.process_structured_data()
+            
+            # Save and convert structured data
+            self.save_structured_data(extracted_results)
+            structured_documents = self.convert_to_documents(extracted_results)
+            
+            # Combine and create index
+            all_documents = unstructured_chunks + structured_documents
+            print(f"\n[+] Total documents: {len(all_documents)}")
+            db = self.create_faiss_index(all_documents)
+        
+        # Print summary
+        self._print_summary(db)
+        return db
+    
+    def _print_summary(self, db):
+        """Print preprocessing summary."""
+        print("\n" + "="*80)
+        print("Preprocessing Summary")
+        print("="*80)
+        print(f"FAISS Index Location: {self.faiss_dir}")
+        print(f"Total Documents in Index: {db.index.ntotal}")
+        print(f"Structured Data File: {self.output_json}")
+        print("="*80)
+        print("[+] Ready for querying!")
+        print("="*80)
+
+
+# ==================== Main ====================
+
+def parse_arguments():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Document Preprocessing Pipeline - Build FAISS vector store from PDFs"
+    )
+    parser.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="Force rebuild FAISS index (delete and recreate even if it exists)"
+    )
+    parser.add_argument(
+        "--faiss-dir",
+        type=str,
+        default=None,
+        help="Directory to store FAISS index (default: <project-root>/public/vector-store)"
+    )
+    parser.add_argument(
+        "--unstructured-dir",
+        type=str,
+        default=None,
+        help="Directory containing unstructured PDFs (default: <project-root>/data/unstructured)"
+    )
+    parser.add_argument(
+        "--structured-dir",
+        type=str,
+        default=None,
+        help="Directory containing structured PDFs (default: <project-root>/data/structured)"
+    )
+    parser.add_argument(
+        "--output-json",
+        type=str,
+        default=None,
+        help="Output JSON file for structured data (default: <project-root>/public/all_structured_data.json)"
+    )
+    return parser.parse_args()
+
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("TFN-AI RAG Document Preprocessing with Embeddings (FAISS)")
-    print("=" * 60 + "\n")
+    args = parse_arguments()
     
-    # Process PDFs
-    docs_json, langchain_docs = load_and_process_pdfs()
+    preprocessor = DocumentPreprocessor(
+        unstructured_dir=args.unstructured_dir,
+        structured_dir=args.structured_dir,
+        faiss_dir=args.faiss_dir,
+        output_json=args.output_json
+    )
     
-    if docs_json:
-        # Save JSON (backward compatibility)
-        save_documents_json(docs_json)
-        
-        # Create and save embeddings + vector store
-        print("\n" + "=" * 60)
-        print("🚀 Creating Pre-computed Embeddings...")
-        print("=" * 60)
-        
-        success = create_embeddings_and_vectorstore(langchain_docs)
-        
-        print("\n" + "=" * 60)
-        if success:
-            print("✅ Preprocessing Complete!")
-            print("\n📦 Generated files:")
-            print("   - public/tfn-documents.json (chunks)")
-            print("   - public/vector-store/index.pkl (Python docstore)")
-            print("   - public/vector-store/index.faiss (FAISS index)")
-            print("   - public/vector-store/docstore.json (Node.js docstore)")
-            print("\n🚀 Your API will now load INSTANTLY (no cold start delay)!")
-        else:
-            print("⚠️  JSON created, but embeddings failed")
-            print("   API will fall back to creating embeddings at runtime")
-        print("=" * 60)
+    if args.rebuild:
+        print("\n[!] Rebuild flag detected. Forcing rebuild...")
+        db = preprocessor.rebuild_index()
     else:
-        print("\n" + "=" * 60)
-        print("⚠️  No documents processed")
-        print("=" * 60)
+        db = preprocessor.run()
+
