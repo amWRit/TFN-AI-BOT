@@ -306,24 +306,24 @@ export default function Home() {
       <div className="flex-1 overflow-y-auto px-6 py-8 relative z-10">
         <div className="max-w-4xl mx-auto space-y-6">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center space-y-8">
-              <div className="space-y-8 max-w-2xl">
-                <div className="space-y-4">
+            <div className="flex flex-col items-center justify-start pt-2 text-center space-y-4">
+              <div className="space-y-3 max-w-2xl">
+                <div className="space-y-3">
                   <div className="inline-block">
-                    <div className="w-24 h-24 mx-auto bg-gradient-to-br from-purple-500/40 via-pink-500/40 to-cyan-500/40 rounded-2xl flex items-center justify-center border border-purple-400/30 shadow-xl shadow-purple-500/20">
-                      <Zap className="w-12 h-12 text-cyan-300" />
+                    <div className="w-16 h-16 mx-auto bg-gradient-to-br from-purple-500/40 via-pink-500/40 to-cyan-500/40 rounded-2xl flex items-center justify-center border border-purple-400/30 shadow-xl shadow-purple-500/20">
+                      <Zap className="w-8 h-8 text-cyan-300" />
                     </div>
                   </div>
-                  <h2 className="block text-5xl md:text-6xl font-black bg-gradient-to-r from-purple-200 via-pink-200 to-cyan-200 bg-clip-text text-transparent">
+                  <h2 className="block text-3xl md:text-4xl font-black bg-gradient-to-r from-purple-200 via-pink-200 to-cyan-200 bg-clip-text text-transparent">
                     How can I help?
                   </h2>
-                  <p className="text-lg text-gray-300 leading-relaxed max-w-xl mx-auto">
-                    Ask me anything about TFN. I'll search through all indexed documents and provide you with accurate, sourced answers.
+                  <p className="text-sm text-gray-400 leading-relaxed max-w-xl mx-auto">
+                    Ask me anything about TFN. I'll search through all indexed documents and provide accurate answers.
                   </p>
                 </div>
 
                 {/* Quick Actions */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 pt-2">
                   {/* Row 1 */}
                   <button onClick={() => processQuery('Tell me more about the TFN fellowship program.')} className="group h-32 p-4 rounded-xl bg-gradient-to-br from-pink-600/20 to-pink-900/20 border border-pink-400/30 hover:border-pink-400/60 hover:bg-gradient-to-br hover:from-pink-600/40 hover:to-pink-900/40 transition-all text-left flex flex-col justify-between">
                     <div className="text-3xl mb-2">🎓</div>
