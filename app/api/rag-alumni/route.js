@@ -128,19 +128,24 @@ function searchStructuredData(data, query, type, wantsComplete) {
 function formatStructuredContext(results, type) {
   if (results.length === 0) return null;
   
-  let context = `# Structured Data Results (${type})\n\n`;
+  let context = `Found ${results.length} ${type}:\n\n`;
   
   results.forEach(({ item }, idx) => {
     if (type === 'staff') {
-      context += `## ${idx + 1}. ${item.name}\n`;
-      context += `Role: ${item.role}\n`;
-      context += `Bio: ${item.bio || 'No biography available'}\n\n`;
+      context += `${idx + 1}. Name: ${item.name}\n`;
+      context += `   Role: ${item.role}\n`;
+      if (item.bio && item.bio !== 'No biography available') {
+        context += `   Bio: ${item.bio}\n`;
+      }
+      context += '\n';
     } else if (type === 'partners') {
-      context += `## ${idx + 1}. ${item.name}\n`;
-      context += `Type: ${item.type}\n`;
-      context += `Description: ${item.description || 'No description available'}\n`;
+      context += `${idx + 1}. Name: ${item.name}\n`;
+      context += `   Type: ${item.type}\n`;
+      if (item.description && item.description !== 'No description available') {
+        context += `   Description: ${item.description}\n`;
+      }
       if (item.contact_person && item.contact_person !== 'No biography available') {
-        context += `Contact: ${item.contact_person}\n`;
+        context += `   Contact: ${item.contact_person}\n`;
       }
       context += '\n';
     }
@@ -268,22 +273,24 @@ export async function POST(request) {
 
     // STEP 5: Create RAG chain with optional structured context
     const prompt = ChatPromptTemplate.fromTemplate(`
-Answer using the provided context below. If structured data is provided, prioritize it for factual information about people and organizations.
+You are a helpful assistant answering questions about Teach For Nepal (TFN).
 
-STRUCTURED DATA:
+STRUCTURED DATA (Complete and Authoritative):
 {structured_context}
 
-DOCUMENT CONTEXT:
+DOCUMENT CONTEXT (Supporting Information):
 {document_context}
 
 QUESTION: {question}
 
 Instructions:
-- If the question is about staff or partners and structured data is provided, use that as the primary source
-- Combine information from both sources when relevant
-- Always cite your sources (e.g., [Structured Data] or [Source: filename.pdf page X])
-- Be concise but complete
-- If information isn't available, say so clearly
+- When listing staff or partners, include ALL the details provided (names, roles, bios, descriptions)
+- Do NOT just cite [Structured Data] - actually include the information in your answer
+- For list queries, format as a clean numbered list with full details
+- For individual queries, provide a comprehensive answer with all relevant details
+- Combine structured data with document context when both are relevant
+- Be natural and conversational, not robotic
+- If asking for "all" or "list", show complete information for each item
 
 Answer:`);
 
