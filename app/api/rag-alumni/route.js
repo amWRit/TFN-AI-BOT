@@ -323,7 +323,14 @@ Answer:`);
     console.log('✅ Query completed successfully');
 
     // STEP 7: Combine sources (structured first, then RAG)
-    const allSources = [...structuredSources, ...ragSources];
+    const structuredSourcesFormatted = structuredSources.map((s, idx) => ({
+      ...s,
+      // Keep full metadata for adaptive rendering
+      displayType: analysis.type,
+      rawData: s.metadata
+    }));
+    
+    const allSources = [...structuredSourcesFormatted, ...ragSources];
 
     return Response.json({
       answer: answer.trim(),
@@ -331,6 +338,7 @@ Answer:`);
       searchMode: searchMode,
       structuredResultsCount: structuredSources.length,
       ragResultsCount: ragSources.length,
+      structuredType: analysis.type, // Pass the type for frontend
       cached: cachedVectorStore !== null,
       status: 'success'
     });
