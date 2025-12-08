@@ -138,6 +138,7 @@ class DocumentPreprocessor:
     
     def _init_aws_and_llm(self):
         """Initialize AWS Bedrock client and LLM."""
+        # Load .env.local from parent directory
         env_path = os.path.join(os.path.dirname(__file__), '..', '.env.local')
         load_dotenv(env_path)
         
@@ -146,13 +147,6 @@ class DocumentPreprocessor:
         AWS_SESSION_TOKEN = os.getenv('AWS_SESSION_TOKEN')
         AWS_REGION = os.getenv('AWS_REGION')
         
-        print(f"[DEBUG] AWS_REGION: '{AWS_REGION}'")
-        print(f"[DEBUG] AWS_ACCESS_KEY_ID: {'OK' if AWS_ACCESS_KEY_ID else 'MISSING'}")
-        print(f"[DEBUG] AWS_SECRET_ACCESS_KEY: {'OK' if AWS_SECRET_ACCESS_KEY else 'MISSING'}")
-    
-        if not all([AWS_REGION, AWS_SECRET_ACCESS_KEY, AWS_ACCESS_KEY_ID]):
-            raise ValueError("AWS credentials missing from .env!")
-    
         self.bedrock_client = boto3.client(
             service_name="bedrock-runtime",
             region_name=AWS_REGION,
@@ -216,52 +210,67 @@ class DocumentPreprocessor:
             # Setup extraction chain
             pydantic_model = config["pydantic_model"]
             parser = PydanticOutputParser(pydantic_object=pydantic_model)
+            format_instructions = parser.get_format_instructions()
             
-            # IMPROVED PROMPT - Force complete objects
-            system_prompt = config["system_prompt"].format(
-                format_instructions=parser.get_format_instructions()
-            )
-            full_prompt = f"""{system_prompt}
-
-    IMPORTANT: 
-    - Include ALL fields for EVERY item (name, role, bio for staff)
-    - If bio info missing, use "No biography available" 
-    - Return COMPLETE valid JSON only
-
-    Document text to analyze:
-    {raw_text}"""
+            # Create the system prompt with format instructions
+            system_prompt_text = config["system_prompt"].format(format_instructions=format_instructions)
             
-            response = self.bedrock_client.converse(
-                modelId=BEDROCK_LLM_MODEL_ID,
-                messages=[
+            # Build the user message with the text to extract from
+            user_message = f"Text: {raw_text}"
+            
+            # Call Bedrock directly with proper message format
+            import json
+            
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "text": user_message
+                        }
+                    ]
+                }
+            ]
+            
+            # Create the body with proper format for nova-lite model
+            body = {
+                "messages": messages,
+                "system": [
                     {
-                        "role": "user",
-                        "content": [{"text": full_prompt}]
+                        "text": system_prompt_text
                     }
-                ],
-                inferenceConfig={
-                    "maxTokens": 4000,  # Increased for complete output
-                    "temperature": 0.0
-                }
+                ]
+            }
+            
+            response = self.bedrock_client.invoke_model(
+                modelId=BEDROCK_LLM_MODEL_ID,
+                contentType="application/json",
+                accept="application/json",
+                body=json.dumps(body)
             )
             
-            output_text = response['output']['message']['content'][0]['text']
+            # Parse the response
+            response_body = json.loads(response['body'].read())
             
-            # ROBUST PARSING - Handle partial failures
-            try:
-                extracted_data = parser.parse(output_text)
-                items = getattr(extracted_data, config["extraction_field"])
-            except Exception as parse_error:
-                print(f"    [!] Parser failed: {parse_error}")
-                print(f"    [!] Raw output preview: {output_text[:200]}...")
-                # Fallback: extract what we can
-                items = []
-                return {
-                    "filename": filename,
-                    "field_name": config["extraction_field"],
-                    "items": items,
-                    "config": config
-                }
+            # Extract text from response - handle different possible formats
+            if 'output' in response_body and 'message' in response_body['output']:
+                response_text = response_body['output']['message']['content'][0]['text']
+            elif 'content' in response_body:
+                response_text = response_body['content'][0]['text']
+            else:
+                raise ValueError(f"Unexpected response format: {response_body}")
+            
+            # Strip markdown code blocks if present
+            if response_text.startswith('```'):
+                # Remove opening ```json or similar
+                response_text = response_text.split('\n', 1)[1]
+                # Remove closing ```
+                response_text = response_text.rsplit('\n```', 1)[0]
+            
+            # Parse the JSON response
+            extracted_json = json.loads(response_text)
+            extracted_data = pydantic_model(**extracted_json)
+            items = getattr(extracted_data, config["extraction_field"])
             
             print(f"    [+] Extracted {len(items)} items from {filename}")
             
@@ -274,7 +283,6 @@ class DocumentPreprocessor:
         except Exception as e:
             print(f"    [-] Error extracting from {filename}: {str(e)}")
             return {}
-
     
     def process_structured_data(self):
         """Process structured PDF documents and return extracted data."""
@@ -462,7 +470,7 @@ def parse_arguments():
         "--output-json",
         type=str,
         default=None,
-        help="Output JSON file for structured data (default: <project-root>/public/all_structured_data.json)"
+        help="Output JSON file for structured data (default: <project-root>/all_structured_data.json)"
     )
     return parser.parse_args()
 
