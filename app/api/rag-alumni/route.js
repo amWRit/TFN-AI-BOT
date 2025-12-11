@@ -40,7 +40,7 @@ function analyzeQueryType(query) {
     staff: {
       keywords: ['staff', 'team', 'employee', 'member', 'ceo', 'director', 
                  'manager', 'coordinator', 'who works', 'team member', 'work at',
-                 'executive', 'chief', 'head of', 'leader'],
+                 'executive', 'chief', 'head of',],
       phrases: ['who is', 'tell me about', 'works at', 'team at']
     },
     partners: {
@@ -148,7 +148,14 @@ function formatStructuredContext(results, type) {
         context += `   Contact: ${item.contact_person}\n`;
       }
       context += '\n';
-    }
+    } else if (type === 'alumni') {
+      context += `${idx + 1}. Name: ${item.name}\n`;
+      context += `   Profile: ${item.profile_url}\n`;
+      if (item.bio && item.bio !== 'No biography available') {
+        context += `   Bio: ${item.bio}\n`;
+      }
+      context += '\n';
+    } 
   });
   
   return context;
