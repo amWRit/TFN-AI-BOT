@@ -40,7 +40,7 @@ function analyzeQueryType(query) {
     staff: {
       keywords: ['staff', 'team', 'employee', 'member', 'ceo', 'director', 
                  'manager', 'coordinator', 'who works', 'team member', 'work at',
-                 'executive', 'chief', 'head of',],
+                 'executive', 'chief', 'head of'],
       phrases: ['who is', 'tell me about', 'works at', 'team at']
     },
     partners: {
@@ -48,6 +48,18 @@ function analyzeQueryType(query) {
                  'ministry', 'bank', 'ngo', 'nonprofit', 'corporate', 'sponsor',
                  'fund', 'support', 'donor'],
       phrases: ['partner with', 'works with', 'collaborated with']
+    },
+    alumni: {
+      keywords: ['alumni', 'graduate', 'ex-fellow', 'former fellow', 'graduated', 'batch', 'cohort'],
+      phrases: ['list alumni', 'show alumni', 'who are alumni', 'alumni of']
+    },
+    fellows: {
+      keywords: ['fellow', 'current fellow', 'selected fellow', 'participant', 'awardee', 'grantee'],
+      phrases: ['list fellows', 'show fellows', 'who are fellows', 'fellows of']
+    },
+    schools: {
+      keywords: ['school', 'college', 'university', 'institution', 'campus', 'education partner'],
+      phrases: ['list schools', 'show schools', 'which school', 'schools of']
     }
   };
   
@@ -83,8 +95,29 @@ function analyzeQueryType(query) {
 }
 
 function searchStructuredData(data, query, type, wantsComplete) {
-  const dataKey = type === 'staff' ? 'staff_members' : type;
+  let dataKey = type;
+  if (type === 'staff') dataKey = 'staff_members';
+  if (type === 'fellows') dataKey = 'fellows';
+  if (type === 'alumni') dataKey = 'alumni';
+  if (type === 'schools') dataKey = 'schools';
   const items = data[dataKey] || [];
+
+  // For schools, allow district/location/description matching
+  if (type === 'schools' && !wantsComplete) {
+    return items.map(item => {
+      let score = 0;
+      const itemText = JSON.stringify(item).toLowerCase();
+      if (item.name && query.includes(item.name.toLowerCase())) score += 10;
+      if (item.district && query.includes(item.district.toLowerCase())) score += 5;
+      if (item.location && query.includes(item.location.toLowerCase())) score += 5;
+      if (item.description && query.includes(item.description.toLowerCase())) score += 2;
+      // Count word matches (words > 3 chars)
+      const queryWords = query.split(/\s+/).filter(w => w.length > 3);
+      const matches = queryWords.filter(w => itemText.includes(w));
+      score += matches.length;
+      return { item, score };
+    }).filter(({ score }) => score > 0).sort((a, b) => b.score - a.score);
+  }
   
   if (items.length === 0) return [];
   
@@ -150,12 +183,30 @@ function formatStructuredContext(results, type) {
       context += '\n';
     } else if (type === 'alumni') {
       context += `${idx + 1}. Name: ${item.name}\n`;
-      context += `   Profile: ${item.profile_url}\n`;
+      if (item.profile_url) context += `   Profile: ${item.profile_url}\n`;
       if (item.bio && item.bio !== 'No biography available') {
         context += `   Bio: ${item.bio}\n`;
       }
       context += '\n';
-    } 
+    } else if (type === 'fellows') {
+      context += `${idx + 1}. Name: ${item.name}\n`;
+      if (item.cohort) context += `   Cohort: ${item.cohort}\n`;
+      if (item.role) context += `   Role: ${item.role}\n`;
+      if (item.bio && item.bio !== 'No biography available') {
+        context += `   Bio: ${item.bio}\n`;
+      }
+      context += '\n';
+    } else if (type === 'schools') {
+      context += `${idx + 1}. Name: ${item.name}\n`;
+      if (item.district) context += `   District: ${item.district}\n`;
+      if (item.location) context += `   Location: ${item.location}\n`;
+      if (item.type) context += `   Type: ${item.type}\n`;
+      if (item.description && item.description !== 'No description available') {
+        context += `   Description: ${item.description}\n`;
+      }
+      if (item.profile_url) context += `   Profile: ${item.profile_url}\n`;
+      context += '\n';
+    }
   });
   
   return context;

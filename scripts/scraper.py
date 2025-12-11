@@ -13,7 +13,6 @@ import argparse
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
-
 # ==================== CLEAN BASE CONFIGURATION ====================
 SCRAPER_CONFIGS = {
     "alumni": {
@@ -52,13 +51,12 @@ SCRAPER_CONFIGS = {
         "fields": {
             "name": ".nameSection a.name",
             "location": ".nameSection li:nth-child(2)", 
-            "bio": ".textDespHolder p",
+            "description": ".textDespHolder p",
             "profile_url": ".nameSection a.name"
         },
-        "output_key_template": "schools_{district}"
+        "output_key": "schools"
     }
 }
-
 
 def scrape_flexible(sites=None):
     """Main flexible scraper entrypoint."""
@@ -82,6 +80,7 @@ def scrape_flexible(sites=None):
         if site_name == "schools":
             school_results = scrape_schools_all_districts(config, headers)
             all_results.update(school_results)
+            print(f"✅ schools: {len(school_results['schools'])} total schools")
         else:
             print(f"\n📄 Scraping '{site_name}' → {config['output_key']}")
             data = scrape_site(config, headers)
@@ -91,25 +90,28 @@ def scrape_flexible(sites=None):
     save_results(all_results)
     return all_results
 
-
 def scrape_schools_all_districts(schools_config, headers):
-    """Scrape ALL school districts."""
+    """Scrape ALL school districts → MERGE into single schools array."""
     print("\n🏫 Scraping ALL School Districts...")
-    results = {}
+    all_schools = []
     
     for district in schools_config["districts"]:
         config = schools_config.copy()
         config["base_url"] = schools_config["base_url_template"].format(district=district)
-        config["output_key"] = schools_config["output_key_template"].format(district=district)
+        config["current_district"] = district  # 👈 NEW: Pass district explicitly
         
-        print(f"\n    📄 schools_{district}")
-        data = scrape_site(config, headers)
-        results[config["output_key"]] = data
-        print(f"    ✅ {len(data)} schools from {district}")
+        print(f"\n    📄 schools from {district}")
+        district_schools = scrape_site(config, headers)
+        
+        # Add district field to each school
+        for school in district_schools:
+            school["district"] = district
+        
+        all_schools.extend(district_schools)
+        print(f"    ✅ {len(district_schools)} schools from {district}")
         time.sleep(2)
     
-    return results
-
+    return {"schools": all_schools}
 
 def scrape_site(config, headers):
     """✅ FIXED: Check pagination BEFORE incrementing page!"""
@@ -147,7 +149,6 @@ def scrape_site(config, headers):
     print(f"        ✅ Site complete: {len(data)} total items")
     return data
 
-
 def is_true_last_page(soup, config, current_page):
     """✅ TRUE LAST PAGE: BOTH Prev+Next DISABLED OR no next links."""
     
@@ -181,7 +182,6 @@ def is_true_last_page(soup, config, current_page):
     
     return False
 
-
 def analyze_pagination(soup, config, current_page):
     """Detailed pagination analysis."""
     status = []
@@ -197,7 +197,6 @@ def analyze_pagination(soup, config, current_page):
     
     return " | ".join(status)
 
-
 def get_active_page_number(soup):
     """Get current active page number."""
     active_link = soup.select_one(".pagination li.active a")
@@ -209,7 +208,6 @@ def get_active_page_number(soup):
             except:
                 pass
     return 1
-
 
 def scrape_paginated_page(url, config, headers):
     """Extract items from page."""
@@ -240,7 +238,6 @@ def scrape_paginated_page(url, config, headers):
         print(f"        ❌ Error on {url}: {str(e)[:60]}")
         return []
 
-
 def extract_item(container, config):
     """Extract data from single container."""
     item = {
@@ -257,15 +254,21 @@ def extract_item(container, config):
                 item[field_name] = elem.get_text().strip()
                 break
     
-    for field_name in ['profile_url', 'url']:
-        if field_name in item and item[field_name] and not item[field_name].startswith('http'):
-            item[field_name] = urljoin(config.get("base_url", ""), item[field_name])
+    # 👈 NEW: Special handling for school profile URLs
+    if "profile_url" in item and config.get("current_district"):
+        # For schools, construct district URL directly
+        district = config["current_district"]
+        item["profile_url"] = f"https://www.teachfornepal.org/tfn/school/district/{district}/"
+    else:
+        # Fallback URL joining for non-schools
+        for field_name in ['profile_url', 'url']:
+            if field_name in item and item[field_name] and not item[field_name].startswith('http'):
+                item[field_name] = urljoin(config.get("base_url", ""), item[field_name])
     
     if len([v for v in item.values() if v and v not in ["web_scraped"]]) <= 1:
         return None
     
     return item
-
 
 def save_results(results):
     """Merge all scraped data into JSON."""
@@ -288,7 +291,6 @@ def save_results(results):
     
     print(f"💾 Saved to: {json_path}")
 
-
 # ==================== CLI ====================
 def parse_args():
     parser = argparse.ArgumentParser(description="TFN Flexible Web Scraper")
@@ -296,7 +298,6 @@ def parse_args():
     parser.add_argument("--test", help="Test single site")
     parser.add_argument("--scrape-all", action="store_true", help="Scrape ALL sites")
     return parser.parse_args()
-
 
 if __name__ == "__main__":
     args = parse_args()
