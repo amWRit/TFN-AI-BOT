@@ -1,380 +1,292 @@
+# ---
+
+## Hybrid RAG Flow Explained
+
+The backend implements a **hybrid RAG (Retrieval-Augmented Generation) flow**:
+
+- **Structured Retrieval:** For queries about known entities (alumni, fellows, schools, etc.), the API fetches relevant records directly from structured_data.json and returns them as cards, with optional pagination ("View More").
+- **Unstructured RAG:** For open-ended or policy questions, the API uses LangChain to retrieve the most relevant text chunks from the FAISS vector store (built from PDFs and unstructured data). These chunks are injected as context into the LLM prompt.
+- **Hybrid Handling:** If a query could match both (e.g., "Show alumni who worked on X policy"), the backend combines structured filtering with unstructured retrieval, then augments the LLM prompt with both types of context.
+- **LLM Generation:** The Bedrock LLM (via LangChain) generates an answer using only the provided context, always citing sources. This ensures answers are grounded in your data, not hallucinated.
+
+This hybrid approach allows the system to:
+- Return fast, accurate lists for structured queries
+- Provide rich, context-aware answers for open-ended questions
+- Seamlessly combine both when needed
+# ---
+
+## Query Flow Overview
+
+### What Happens When You Submit a Query?
+
+```
+User submits query in UI
+   │
+   ▼
+Frontend sends POST to /api/rag-alumni
+   │
+   ▼
+route.js receives request
+   │
+   ▼
+┌─────────────────────────────┐
+│ 1. Analyze query type       │
+└────────────┬────────────────┘
+        │
+ ┌───────────▼─────────────┐
+ │ Structured query?       │
+ └───────┬───────┬─────────┘
+    │       │
+   Yes   │       │   No
+    │       │
+    ▼       ▼
+Fetch relevant  Run vector search
+records from    over unstructured
+structured data data (FAISS)
+    │       │
+    ▼       ▼
+Format context   Format context
+for LLM         for LLM
+    │       │
+    └───┬───┘
+        ▼
+Build PDO prompt (Persona, Data, Objective)
+        │
+        ▼
+Call Bedrock LLM (Nova Lite)
+        │
+        ▼
+Parse and format answer (with sources, context, hasMore, totalCount)
+        │
+        ▼
+Return response to frontend
+        │
+        ▼
+Display answer, sources, and (if structured) "View More" in UI
+```
+
+---
+
+## Example Use Cases
+
+### 1. Structured Query (Alumni List)
+
+**User:** "List all TFN alumni in 2022"
+
+- Query is detected as structured (alumni)
+- route.js fetches alumni records for 2022 from structured_data.json
+- Returns first 10 results, with hasMore=true if more exist
+- Frontend shows cards for each alumni, with "View More" button
+
+### 2. Unstructured Query (Policy Question)
+
+**User:** "What are the core values of TFN?"
+
+- Query is detected as unstructured
+- route.js runs vector search over FAISS index (unstructured_chunks.json)
+- Retrieves top-k relevant chunks
+- Builds PDO prompt and calls LLM
+- LLM generates answer, citing PDF and page
+- Frontend displays answer and sources
+
+### 3. Mixed Query (School Details)
+
+**User:** "Show me all partner schools in Kathmandu"
+
+- Query matches structured data (schools)
+- route.js filters schools by location (Kathmandu)
+- Returns paginated list of schools, with context and sources
+
+---
+# ---
+
+## Backend Orchestration & Prompt Engineering
+
+### How `route.js` Works
+
+- The main API endpoint (`app/api/rag-alumni/route.js`) handles all user queries.
+- It loads the FAISS vector store and structured/unstructured data on startup.
+- On each request:
+   1. **Query Analysis:** Determines if the query targets structured data (e.g., alumni, fellows) or requires unstructured RAG.
+   2. **Hybrid Retrieval:**
+       - For structured queries: fetches relevant records, supports pagination ("View More").
+       - For unstructured queries: uses LangChain's retriever to find top-k relevant chunks from the vector store.
+   3. **Prompt Construction:**
+       - Uses PDO (Persona, Data, Objective) prompt engineering:
+          - **Persona:** System prompt defines the AI as a TFN assistant, with clear role and tone.
+          - **Data:** Injects only the retrieved context (structured or unstructured) into the prompt.
+          - **Objective:** Clearly states the user's question and instructs the LLM to answer concisely, always citing sources.
+   4. **LLM Orchestration:**
+       - LangChain chains together the retriever and LLM (Bedrock Nova Lite) using a RAG pipeline.
+       - Handles all API calls, error handling, and response formatting.
+   5. **Response:**
+       - Returns answer, sources, context, hasMore, and totalCount to the frontend.
+
+### Use of LangChain
+
+- LangChain is used for:
+   - Document loading and chunking (in preprocessing scripts)
+   - Vector store management (FAISS)
+   - Retriever orchestration (hybrid search)
+   - Prompt templating and LLM chaining (RAG pipeline)
+   - Error handling and fallback logic
+
+### Prompt Engineering (PDO)
+
+- **Persona:**
+   - The system prompt always frames the LLM as a helpful, accurate TFN assistant.
+- **Data:**
+   - Only retrieved, relevant context is provided to the LLM (never the full corpus).
+- **Objective:**
+   - Prompts instruct the LLM to answer the user's question, cite sources, and avoid speculation.
+
+### Project Requirements Mapping
+
+- ✅ **LangChain for orchestration:** Used throughout backend and preprocessing.
+- ✅ **Retrieval-Augmented Generation (RAG):** Hybrid search over structured and unstructured data, with LLM generation.
+- ✅ **PDO Prompt Engineering:** All prompts follow Persona, Data, Objective best practices.
 # 🏗️ TFN-AI Architecture & Integration
 
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     TFN-AI Web Application                  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                ┌─────────────┴─────────────┐
-                │                           │
-        ┌───────▼────────┐          ┌──────▼────────┐
-        │   Frontend     │          │   Backend API │
-        │  (Next.js)     │          │   (Node.js)   │
-        │   page.js      │          │   route.js    │
-        └───────┬────────┘          └──────┬────────┘
-                │                          │
-                │   User Query             │ POST /api/rag-alumni
-                └──────────────────────────┤
-                                           │
-                        ┌──────────────────▼──────────────────┐
-                        │    Document Processing Pipeline    │
-                        └──────────────────┬──────────────────┘
-                                           │
-                    ┌──────────────────────┼──────────────────────┐
-                    │                      │                      │
-            ┌───────▼─────────┐  ┌────────▼────────┐  ┌──────────▼───────┐
-            │ Load Documents  │  │ Embeddings      │  │ Vector Search    │
-            │ (JSON chunks)   │  │ (Titan v2)      │  │ (Top 3 chunks)   │
-            │ tfn-documents   │  │ AWS Bedrock     │  │ Semantic match   │
-            └───────┬─────────┘  └────────┬────────┘  └──────────┬───────┘
-                    │                     │                      │
-                    └─────────────────────┼──────────────────────┘
-                                          │
-                            ┌─────────────▼──────────────┐
-                            │  LLM Processing Pipeline   │
-                            └─────────────┬──────────────┘
-                                          │
-                    ┌─────────────────────┼──────────────────────┐
-                    │                     │                      │
-            ┌───────▼─────────┐  ┌───────▼────────┐  ┌──────────▼───────┐
-            │  User Question  │  │ Relevant Docs  │  │ LLM Generation   │
-            │ + RAG Prompt    │  │ (3 chunks)     │  │ (Nova Lite)      │
-            └───────┬─────────┘  └────────┬───────┘  └──────────┬───────┘
-                    │                     │                      │
-                    └─────────────────────┼──────────────────────┘
-                                          │
-                            ┌─────────────▼──────────────┐
-                            │   Response Generation      │
-                            │ - Answer with citations    │
-                            │ - Source documents         │
-                            │ - Document count           │
-                            └─────────────┬──────────────┘
-                                          │
-                            ┌─────────────▼──────────────┐
-                            │   Display to User          │
-                            │   (Web UI)                 │
-                            └────────────────────────────┘
+
+# TFN-AI Architecture (2025)
+
+## Overview
+
+TFN-AI is a hybrid RAG (Retrieval-Augmented Generation) chatbot for Teach For Nepal, supporting both unstructured (PDFs) and structured (staff, alumni, fellows, schools, partners) data. It uses a Next.js frontend, a Node.js/Next.js API backend, Python preprocessing, and AWS Bedrock for embeddings and LLM.
+
+---
+
+## System Components
+
+**Frontend:**
+- Next.js 14+ (React, Tailwind CSS)
+- `app/page.js` (UI, chat, quick actions, adaptive cards, "View More" logic)
+
+**Backend API:**
+- `app/api/rag-alumni/route.js` (RAG endpoint, hybrid search, error handling)
+
+**Preprocessing Pipeline:**
+- Python scripts in `scripts/` (preprocess_docs.py, index_builder.py, scraper.py)
+- Reads PDFs from `data/structured/` and `data/unstructured/`
+- Extracts, chunks, and combines structured and unstructured data
+- Outputs: `public/vector-store/index.faiss`, `public/json/structured_data.json`, etc.
+
+**Vector Store:**
+- FAISS (no Chroma fallback)
+- Pre-built with all data, loaded at runtime
+
+**Structured Data:**
+- staff, alumni, fellows, schools, partners (from PDFs and web scraping)
+- Unified in `public/json/structured_data.json` and indexed in FAISS
+
+**Environment:**
+- `.env.local` for AWS credentials and config
+
+---
+
+## Data Flow
+
+1. **Preprocessing (Python, local):**
+   - Run `python scripts/pipeline.py` to orchestrate the full pipeline:
+     - Runs `scraper.py` to collect and update structured data
+     - Runs `preprocess_docs.py` (and/or `structured_preprocessor.py`, `unstructured_preprocessor.py`) to extract and chunk data
+     - Runs `index_builder.py` to build the FAISS vector index
+   - All outputs are placed in `public/vector-store/` and `public/json/`
+   - Place PDFs and data in `data/structured/` and `data/unstructured/`
+   - Outputs: `public/vector-store/index.faiss`, `public/json/structured_data.json`, etc.
+
+2. **Runtime (User Query):**
+   - User enters query in web UI
+   - Frontend sends POST to `/api/rag-alumni` with `{query}`
+   - Backend loads FAISS vector store and structured data
+   - Hybrid search: detects if query matches structured patterns (staff, alumni, etc.)
+   - If structured: returns top 10 results, with "View More" support (pagination)
+   - If unstructured: RAG search over PDF chunks
+   - LLM (Bedrock Nova Lite) generates answer, always citing sources
+   - Response includes: answer, sources, context, hasMore, totalCount
+
+3. **Frontend Rendering:**
+   - Adaptive cards for structured data (staff, alumni, fellows, schools, partners)
+   - "View More" button for large lists (fetches all results)
+   - Source citations for all answers
+
+---
+
+## Key Features
+
+- Hybrid RAG: combines structured and unstructured data
+- Responsive UI with quick actions, adaptive cards, and pagination
+- Robust error handling (AWS credentials, missing data, etc.)
+- Modular Python pipeline for preprocessing, scraping, and indexing
+- Secure: no credentials in repo, `.env.local` required
+
+---
+
+## Deployment & Setup
+
+1. Clone repo and install dependencies:
+   - `pip install -r scripts/requirements.txt`
+   - `npm install`
+2. Place PDFs in `data/structured/` and `data/unstructured/`
+3. Run preprocessing:
+   - `python scripts/preprocess_docs.py`
+4. Configure `.env.local` with AWS Bedrock credentials
+5. Start dev server:
+   - `npm run dev`
+6. Open `http://localhost:3000` and test
+
+---
+
+## Error Handling
+
+- Expired/missing AWS credentials: clear cache, show error in UI
+- No vector store: prompt to run preprocessing
+- Bedrock/embedding errors: clear cache, show error
+
+---
+
+## Project Structure (2025)
+
+```
+TFN-AI-BOT/
+├── app/
+│   ├── globals.css
+│   ├── layout.js
+│   ├── page.js
+│   └── api/rag-alumni/route.js
+├── data/
+│   ├── structured/
+│   └── unstructured/
+├── public/
+│   ├── json/
+│   │   ├── structured_data.json
+│   │   ├── unstructured_chunks.json
+│   │   └── ...
+│   └── vector-store/
+│       ├── index.faiss
+│       └── ...
+├── scripts/
+│   ├── preprocess_docs.py
+│   ├── index_builder.py
+│   ├── scraper.py
+│   ├── requirements.txt
+│   └── ...
+├── .env.local
+├── README.md
+├── ARCHITECTURE.md
+├── PROJECT_STRUCTURE.md
+└── ...
 ```
 
 ---
 
-## Data Flow: Step-by-Step
+## Credits
 
-### Phase 1: Preprocessing (Local)
-
-```python
-PDFs in Project Root
-    │
-    ├─ LF-Policy.pdf
-    ├─ handbook.pdf
-    └─ training.pdf
-         │
-         │ python preprocess_docs.py
-         │
-    ┌────▼────────────────────────────────────┐
-    │ PyPDFLoader                              │
-    │ Extract text from each PDF page          │
-    └────┬────────────────────────────────────┘
-         │
-    ┌────▼────────────────────────────────────┐
-    │ RecursiveCharacterTextSplitter           │
-    │ - Split into 1000-char chunks           │
-    │ - 200-char overlap (context preservation)
-    └────┬────────────────────────────────────┘
-         │
-    ┌────▼────────────────────────────────────┐
-    │ Export to JSON                           │
-    │ public/tfn-documents.json                │
-    │ [{id, content, source, page, type}, ...] │
-    └────────────────────────────────────────┘
-```
-
-### Phase 2: Runtime (User Query)
-
-```
-User Input: "What are TFN programs?"
-    │
-    └─────┬──────────────────────────────────┐
-          │                                  │
-    ┌─────▼──────────────────────────────────┐
-    │ Next.js Frontend (page.js)             │
-    │ POST /api/rag-alumni                   │
-    │ {query: "What are TFN programs?"}      │
-    └─────┬──────────────────────────────────┘
-          │
-    ┌─────▼──────────────────────────────────────────┐
-    │ Backend API Route (route.js)                   │
-    └─────┬──────────────────────────────────────────┘
-          │
-    ┌─────▼──────────────────────────────────────────┐
-    │ 1. Fetch tfn-documents.json (156 chunks)       │
-    └─────┬──────────────────────────────────────────┘
-          │
-    ┌─────▼──────────────────────────────────────────┐
-    │ 2. Initialize Bedrock Embeddings               │
-    │    - Model: amazon.titan-embed-text-v2:0       │
-    │    - AWS Region: us-east-1 (configurable)      │
-    └─────┬──────────────────────────────────────────┘
-          │
-    ┌─────▼──────────────────────────────────────────┐
-    │ 3. Create Vector Store (Chroma)                │
-    │    - Embed all document chunks                 │
-    │    - Build semantic index                      │
-    └─────┬──────────────────────────────────────────┘
-          │
-    ┌─────▼──────────────────────────────────────────┐
-    │ 4. Semantic Search                             │
-    │    - Embed user query: "What are TFN programs?"│
-    │    - Find 3 most similar chunks                │
-    │    - Using cosine similarity                   │
-    └─────┬──────────────────────────────────────────┘
-          │
-    ┌─────▼──────────────────────────────────────────┐
-    │ 5. Build RAG Prompt                            │
-    │    - Question: "What are TFN programs?"        │
-    │    - Context: 3 relevant chunks                │
-    │    - System prompt for TFN assistant           │
-    └─────┬──────────────────────────────────────────┘
-          │
-    ┌─────▼──────────────────────────────────────────┐
-    │ 6. Call Bedrock LLM                            │
-    │    - Model: amazon.nova-lite-v1:0              │
-    │    - Temperature: 0.1 (deterministic)          │
-    │    - Max tokens: 1024                          │
-    │    - Input: Question + Context + Instructions  │
-    └─────┬──────────────────────────────────────────┘
-          │
-    ┌─────▼──────────────────────────────────────────┐
-    │ 7. LLM Generates Response                      │
-    │    - Reads question and context                │
-    │    - Generates answer citing sources           │
-    │    - Returns markdown-formatted text           │
-    └─────┬──────────────────────────────────────────┘
-          │
-    ┌─────▼──────────────────────────────────────────┐
-    │ 8. Extract Source Information                  │
-    │    - Document names: "handbook.pdf"            │
-    │    - Page numbers: 5, 12, 8                    │
-    │    - Content previews (first 150 chars)        │
-    └─────┬──────────────────────────────────────────┘
-          │
-    ┌─────▼──────────────────────────────────────────┐
-    │ 9. Format Response JSON                        │
-    │    {                                            │
-    │      "answer": "TFN programs include...",       │
-    │      "sources": [                               │
-    │        {source: "handbook.pdf", page: 5}        │
-    │      ],                                         │
-    │      "totalDocs": 156,                          │
-    │      "status": "success"                        │
-    │    }                                            │
-    └─────┬──────────────────────────────────────────┘
-          │
-    ┌─────▼──────────────────────────────────────────┐
-    │ 10. Return to Frontend                         │
-    │     Display answer with sources                │
-    └─────┬──────────────────────────────────────────┘
-          │
-    User sees: Answer + PDF Sources + Page Numbers
-```
-
----
-
-## Component Interaction
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                         Frontend UI                          │
-│  app/page.js (React Component)                               │
-│                                                              │
-│  ┌─ Header: App name, doc count                            │
-│  ├─ Chat area: Messages display                            │
-│  ├─ Input field: Type question                             │
-│  └─ Send button: Submit query                              │
-└────────────────┬───────────────────────────────────────────┘
-                 │ fetch('/api/rag-alumni', POST)
-                 │ {query: "What are TFN..."}
-                 │
-┌────────────────▼───────────────────────────────────────────┐
-│                    Backend API Route                        │
-│  app/api/rag-alumni/route.js (Node.js)                     │
-│                                                              │
-│  ┌─ Parse request JSON                                    │
-│  ├─ Validate query (not empty)                            │
-│  ├─ Load tfn-documents.json from public/                  │
-│  ├─ Initialize AWS Bedrock clients                        │
-│  ├─ Create vector store                                    │
-│  ├─ Search similar documents                               │
-│  ├─ Build RAG prompt template                              │
-│  ├─ Execute LLM chain                                      │
-│  ├─ Extract sources metadata                               │
-│  └─ Return JSON response                                   │
-└────────────────┬───────────────────────────────────────────┘
-                 │ Response JSON
-                 │ {answer, sources, totalDocs}
-                 │
-┌────────────────▼───────────────────────────────────────────┐
-│                    External Services                        │
-│                                                              │
-│  AWS Bedrock (Amazon Web Services)                         │
-│  ├─ Embeddings: Titan v2 Text Embedding                  │
-│  │  └─ Converts text to 1024-dim vectors                  │
-│  │                                                          │
-│  └─ LLM: Nova Lite v1.0                                   │
-│     └─ Generates text based on prompt + context           │
-│                                                              │
-│  Chroma Vector Database                                     │
-│  └─ Stores and searches document embeddings                │
-└──────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Data Structures
-
-### Input: User Query
-```json
-{
-  "query": "What are TFN's core values?"
-}
-```
-
-### Internal: Documents JSON
-```json
-[
-  {
-    "id": "doc_42",
-    "content": "TFN core values: Innovation, Integrity, Impact, Collaboration...",
-    "source": "TFN-Policy.pdf",
-    "type": "pdf",
-    "page": 1
-  },
-  // ... 155 more chunks
-]
-```
-
-### Internal: Vector Search Results
-```python
-[
-  Document(
-    page_content="TFN core values: Innovation, Integrity, Impact...",
-    metadata={"source": "TFN-Policy.pdf", "page": 1, "id": "doc_42"}
-  ),
-  // ... 2 more results
-]
-```
-
-### Internal: LLM Prompt
-```
-You are an AI assistant for TFN organization. Answer questions based ONLY on the provided context from TFN documents.
-
-CONTEXT FROM TFN DOCUMENTS:
-TFN core values: Innovation, Integrity, Impact, Collaboration, Continuous Learning...
-
-QUESTION: What are TFN's core values?
-
-INSTRUCTIONS:
-- Answer concisely and accurately
-- Always cite sources (document name and page number)
-- If the answer is not in the context, say "This information is not available..."
-
-ANSWER:
-```
-
-### Output: API Response
-```json
-{
-  "answer": "TFN's core values are Innovation, Integrity, Impact, Collaboration, and Continuous Learning as stated in the TFN-Policy.pdf (page 1).",
-  "sources": [
-    {
-      "source": "TFN-Policy.pdf",
-      "page": 1,
-      "content_preview": "TFN core values: Innovation, Integrity, Impact, Collaboration, and Continuous Learning. These values guide all our decisions..."
-    }
-  ],
-  "totalDocs": 156,
-  "status": "success"
-}
-```
-
----
-
-## Configuration Layers
-
-```
-┌─────────────────────────────────────┐
-│    .env.local (Environment)         │
-│                                     │
-│  AWS_REGION=us-east-1              │
-│  AWS_ACCESS_KEY_ID=AKIA...         │
-│  AWS_SECRET_ACCESS_KEY=wJalr...    │
-│  BEDROCK_MODEL_ID=nova-lite        │
-│  LLM_TEMPERATURE=0.1               │
-└──────────────┬──────────────────────┘
-               │
-┌──────────────▼──────────────────────┐
-│    app/api/rag-alumni/route.js      │
-│                                     │
-│  - Read env vars                    │
-│  - Initialize AWS SDK               │
-│  - Configure LLM temperature        │
-│  - Set retriever k=3                │
-└──────────────┬──────────────────────┘
-               │
-┌──────────────▼──────────────────────┐
-│    Runtime Behavior                 │
-│                                     │
-│  - Search with Titan embeddings     │
-│  - Generate with Nova Lite          │
-│  - Return deterministic (T=0.1)     │
-└─────────────────────────────────────┘
-```
-
----
-
-## Error Handling Flow
-
-```
-User Query
-    │
-    ├─ Empty query?
-    │  └─ Return 400: "Query is required"
-    │
-    ├─ Documents not found?
-    │  └─ Return 400: "Run preprocess_docs.py first"
-    │
-    ├─ AWS credentials missing?
-    │  └─ Return 500: "Configure AWS credentials"
-    │
-    ├─ Bedrock API error?
-    │  └─ Return 500: "Bedrock LLM failed"
-    │
-    ├─ Vector store error?
-    │  └─ Return 500: "Vector store initialization failed"
-    │
-    └─ Success!
-       └─ Return 200: {answer, sources, totalDocs}
-```
-
----
-
-## Performance Characteristics
-
-```
-Time Breakdown (First Query):
-├─ Fetch documents: 0.1s
-├─ Initialize embeddings: 5s
-├─ Create vector store: 15s
-├─ Semantic search: 3s
-├─ Build prompt: 0.2s
-├─ LLM inference: 3s
-└─ Format response: 0.1s
-   ═════════════════════
-   Total: ~26-30 seconds
-
-Time Breakdown (Cached Query):
+- Built with Next.js, LangChain, AWS Bedrock, FAISS, and Python
+- 2025 Teach For Nepal
 ├─ Fetch documents: 0.1s
 ├─ Semantic search: 2s
 ├─ Build prompt: 0.2s
