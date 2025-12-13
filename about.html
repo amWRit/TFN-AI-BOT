@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TFN-AI Presentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .slide-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .slide {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 1100px;
+            height: 650px;
+            padding: 60px;
+            display: none;
+            flex-direction: column;
+            animation: slideIn 0.5s ease-out;
+            overflow-y: auto;
+        }
+
+        .slide.active {
+            display: flex;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide.title-slide {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            text-align: center;
+            justify-content: center;
+            overflow-y: visible;
+        }
+
+        .slide.title-slide h1 {
+            font-size: 3.5em;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .slide.title-slide .subtitle {
+            font-size: 1.8em;
+            opacity: 0.95;
+            margin-bottom: 30px;
+        }
+
+        .slide.title-slide .tagline {
+            font-size: 1.2em;
+            opacity: 0.85;
+            font-style: italic;
+        }
+
+        h2 {
+            color: #1e3c72;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            border-bottom: 4px solid #1e3c72;
+            padding-bottom: 15px;
+        }
+
+        .slide.title-slide h2 {
+            color: white;
+            border-bottom: 4px solid white;
+        }
+
+        h3 {
+            color: #2a5298;
+            font-size: 1.6em;
+            margin: 25px 0 15px 0;
+        }
+
+        ul {
+            list-style: none;
+            font-size: 1.2em;
+            line-height: 1.8;
+        }
+
+        ul li {
+            padding-left: 40px;
+            position: relative;
+            margin-bottom: 12px;
+        }
+
+        ul li:before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            color: #1e3c72;
+            font-weight: bold;
+            font-size: 1.3em;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            flex: 1;
+        }
+
+        .three-column {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            flex: 1;
+        }
+
+        .column h3 {
+            color: #1e3c72;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        .controls {
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        button {
+            background: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #1e3c72;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(255,255,255,0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .slide-number {
+            color: white;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+
+        .highlight-box {
+            background: #e8f0ff;
+            border-left: 5px solid #1e3c72;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-size: 1.15em;
+        }
+
+        .code-box {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+
+        .feature-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            border-color: #1e3c72;
+            box-shadow: 0 5px 15px rgba(30, 60, 114, 0.2);
+        }
+
+        .feature-card h4 {
+            color: #1e3c72;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .feature-card p {
+            font-size: 1em;
+            line-height: 1.6;
+            color: #555;
+        }
+
+        .flow-diagram {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            border: 2px solid #1e3c72;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .tech-badge {
+            background: #1e3c72;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 1em;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <!-- Slide 1: Title -->
+        <div class="slide title-slide active">
+            <h1>TFN-AI</h1>
+            <p class="subtitle">Hybrid RAG Chatbot for Teach For Nepal</p>
+            <p class="tagline">Intelligent Information Retrieval with AI-Powered Insights</p>
+            <p style="margin-top: 50px; font-size: 1.1em; opacity: 0.9;">2025 Project Overview</p>
+        </div>
+
+        <!-- Slide 2: Project Overview -->
+        <div class="slide">
+            <h2>Project Overview</h2>
+            <div class="highlight-box">
+                A cutting-edge chatbot that combines structured and unstructured data retrieval with AI-powered generation for Teach For Nepal
+            </div>
+            <ul>
+                <li><strong>Hybrid RAG Architecture:</strong> Seamlessly combines structured database queries with semantic search</li>
+                <li><strong>Multi-Source Data:</strong> Processes PDFs, staff records, alumni data, schools, and partner information</li>
+                <li><strong>AWS Bedrock Integration:</strong> Leverages Nova Lite LLM and Titan v2 embeddings</li>
+                <li><strong>Modern Tech Stack:</strong> Next.js 14+, Python preprocessing, FAISS vector store</li>
+                <li><strong>Intelligent Pagination:</strong> "View More" functionality for large result sets</li>
+            </ul>
+        </div>
+
+        <!-- Slide 3: Key Features -->
+        <div class="slide">
+            <h2>Key Features</h2>
+            <div class="three-column">
+                <div class="feature-card">
+                    <h4>🔍 Smart Search</h4>
+                    <p>Hybrid retrieval combining structured queries and semantic search over documents</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📚 Multi-Format Data</h4>
+                    <p>Processes PDFs, structured records, and web-scraped content</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🎯 Source Citations</h4>
+                    <p>Every answer includes verifiable sources with page numbers</p>
+                </div>
+                <div class="feature-card">
+                    <h4>⚡ Fast Response</h4>
+                    <p>Optimized pipeline with 4-5 second average query time</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🎨 Adaptive UI</h4>
+                    <p>Dynamic cards for different data types with pagination support</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🔒 Secure</h4>
+                    <p>AWS credentials via environment variables, no hardcoded secrets</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 4: System Architecture -->
+        <div class="slide">
+            <h2>System Architecture</h2>
+            <div class="two-column">
+                <div>
+                    <h3>Frontend</h3>
+                    <ul style="font-size: 1.1em;">
+                        <li>Next.js 14+ with React</li>
+                        <li>Tailwind CSS styling</li>
+                        <li>Adaptive card components</li>
+                        <li>Real-time chat interface</li>
+                    </ul>
+                    <h3 style="margin-top: 30px;">Backend API</h3>
+                    <ul style="font-size: 1.1em;">
+                        <li>Node.js/Next.js endpoint</li>
+                        <li>FAISS vector store</li>
+                        <li>LangChain orchestration</li>
+                        <li>AWS Bedrock integration</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>Preprocessing</h3>
+                    <ul style="font-size: 1.1em;">
+                        <li>Python pipeline scripts</li>
+                        <li>PDF extraction & chunking</li>
+                        <li>Web scraping module</li>
+                        <li>Vector index building</li>
+                    </ul>
+                    <h3 style="margin-top: 30px;">Data Storage</h3>
+                    <ul style="font-size: 1.1em;">
+                        <li>FAISS vector index</li>
+                        <li>Structured JSON files</li>
+                        <li>Unstructured chunks</li>
+                        <li>Public asset directory</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 5: Technology Stack -->
+        <div class="slide">
+            <h2>Technology Stack</h2>
+            <h3>Frontend & Backend</h3>
+            <div class="tech-stack">
+                <span class="tech-badge">Next.js 14+</span>
+                <span class="tech-badge">React</span>
+                <span class="tech-badge">Tailwind CSS</span>
+                <span class="tech-badge">Node.js</span>
+            </div>
+            <h3>AI & ML</h3>
+            <div class="tech-stack">
+                <span class="tech-badge">AWS Bedrock</span>
+                <span class="tech-badge">Nova Lite LLM</span>
+                <span class="tech-badge">Titan v2 Embeddings</span>
+                <span class="tech-badge">LangChain</span>
+                <span class="tech-badge">FAISS</span>
+            </div>
+            <h3>Data Processing</h3>
+            <div class="tech-stack">
+                <span class="tech-badge">Python 3.9+</span>
+                <span class="tech-badge">PyPDF</span>
+                <span class="tech-badge">Beautiful Soup</span>
+                <span class="tech-badge">Requests</span>
+            </div>
+        </div>
+
+        <!-- Slide 6: Hybrid RAG Flow -->
+        <div class="slide">
+            <h2>Hybrid RAG Flow</h2>
+            <div class="flow-diagram">
+User Query
+    ↓
+Query Analysis
+    ↓
+    ├─ Structured? → Fetch from JSON → Format Cards
+    │                                        ↓
+    └─ Unstructured? → FAISS Search → Retrieve Chunks
+                                             ↓
+                                    Build PDO Prompt
+                                             ↓
+                                    AWS Bedrock LLM
+                                             ↓
+                              Generate Answer + Citations
+                                             ↓
+                                    Return to Frontend
+                                             ↓
+                              Display with "View More"
+            </div>
+            <div class="highlight-box">
+                <strong>PDO Prompt Engineering:</strong> Persona (TFN assistant) + Data (retrieved context) + Objective (answer with sources)
+            </div>
+        </div>
+
+        <!-- Slide 7: Query Examples -->
+        <div class="slide">
+            <h2>Query Examples</h2>
+            <div class="two-column">
+                <div>
+                    <h3>Structured Queries</h3>
+                    <div class="code-box">
+"List all TFN alumni in 2022"
+<br><br>
+→ Fetches alumni records
+→ Returns first 10 results
+→ "View More" for pagination
+                    </div>
+                    <div class="code-box" style="margin-top: 15px;">
+"Show partner schools in Kathmandu"
+<br><br>
+→ Filters schools by location
+→ Displays school cards
+→ Includes contact info
+                    </div>
+                </div>
+                <div>
+                    <h3>Unstructured Queries</h3>
+                    <div class="code-box">
+"What are TFN's core values?"
+<br><br>
+→ Semantic search in PDFs
+→ Retrieves top chunks
+→ LLM generates answer
+→ Cites PDF and page
+                    </div>
+                    <div class="code-box" style="margin-top: 15px;">
+"Explain the fellowship program"
+<br><br>
+→ Searches policy docs
+→ Combines multiple sources
+→ Comprehensive response
+→ Full attribution
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 8: Data Flow -->
+        <div class="slide">
+            <h2>Data Flow Pipeline</h2>
+            <h3>1. Preprocessing (Offline)</h3>
+            <ul>
+                <li>Run <code>python scripts/pipeline.py</code> to orchestrate full pipeline</li>
+                <li>Scraper collects structured data from web sources</li>
+                <li>PDF extraction and chunking for unstructured documents</li>
+                <li>FAISS index building with Bedrock embeddings</li>
+                <li>Output: vector store and JSON files in <code>public/</code></li>
+            </ul>
+            <h3 style="margin-top: 25px;">2. Runtime (Online)</h3>
+            <ul>
+                <li>User submits query through web interface</li>
+                <li>Backend loads FAISS index and structured data</li>
+                <li>Hybrid search determines query type and retrieves context</li>
+                <li>LLM generates answer with source citations</li>
+                <li>Frontend displays adaptive cards with pagination</li>
+            </ul>
+        </div>
+
+        <!-- Slide 9: Project Structure -->
+        <div class="slide">
+            <h2>Project Structure</h2>
+            <div class="code-box">
+TFN-AI-BOT/
+├── app/
+│   ├── page.js                    (Frontend UI)
+│   ├── globals.css
+│   └── api/rag-alumni/route.js    (Backend API)
+├── data/
+│   ├── structured/                (Staff, alumni PDFs)
+│   └── unstructured/              (General docs)
+├── public/
+│   ├── vector-store/
+│   │   └── index.faiss            (Vector index)
+│   └── json/
+│       ├── structured_data.json
+│       └── unstructured_chunks.json
+├── scripts/
+│   ├── preprocess_docs.py
+│   ├── index_builder.py
+│   └── scraper.py
+└── .env.local                     (AWS credentials)
+            </div>
+        </div>
+
+        <!-- Slide 10: Setup Steps -->
+        <div class="slide">
+            <h2>Setup & Deployment</h2>
+            <div class="two-column">
+                <div>
+                    <h3>Initial Setup</h3>
+                    <div class="code-box">
+# Clone repository
+git clone &lt;repo-url&gt;
+cd TFN-AI-BOT
+
+# Install dependencies
+pip install -r scripts/requirements.txt
+npm install
+
+# Add your data
+# Place PDFs in data/
+                    </div>
+                </div>
+                <div>
+                    <h3>Configuration</h3>
+                    <div class="code-box">
+# Preprocess data
+python scripts/preprocess_docs.py
+
+# Configure .env.local
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+
+# Start server
+npm run dev
+                    </div>
+                </div>
+            </div>
+            <div class="highlight-box" style="margin-top: 20px;">
+                <strong>Security Note:</strong> Never commit .env.local or credentials to version control
+            </div>
+        </div>
+
+        <!-- Slide 11: Error Handling -->
+        <div class="slide">
+            <h2>Robust Error Handling</h2>
+            <div class="three-column">
+                <div class="feature-card">
+                    <h4>AWS Credentials</h4>
+                    <p>Detects expired or missing credentials, clears cache, shows clear error messages</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Missing Data</h4>
+                    <p>Prompts to run preprocessing if vector store or JSON files are missing</p>
+                </div>
+                <div class="feature-card">
+                    <h4>API Failures</h4>
+                    <p>Graceful fallback for Bedrock API errors with user-friendly messages</p>
+                </div>
+            </div>
+            <h3 style="margin-top: 30px;">Performance Metrics</h3>
+            <ul>
+                <li><strong>Average Query Time:</strong> 4-5 seconds end-to-end</li>
+                <li><strong>Document Fetch:</strong> ~0.1 seconds</li>
+                <li><strong>Semantic Search:</strong> ~2 seconds</li>
+                <li><strong>LLM Inference:</strong> ~2 seconds</li>
+                <li><strong>Response Format:</strong> ~0.1 seconds</li>
+            </ul>
+        </div>
+
+        <!-- Slide 12: Use Cases -->
+        <div class="slide">
+            <h2>Real-World Use Cases</h2>
+            <div class="two-column">
+                <div>
+                    <h3>For Staff</h3>
+                    <ul style="font-size: 1.1em;">
+                        <li>Quick access to alumni data</li>
+                        <li>Policy and program lookups</li>
+                        <li>School partnership info</li>
+                        <li>Fellow placement details</li>
+                    </ul>
+                    <h3 style="margin-top: 25px;">For Leadership</h3>
+                    <ul style="font-size: 1.1em;">
+                        <li>Impact metrics and reports</li>
+                        <li>Historical program data</li>
+                        <li>Strategic planning insights</li>
+                        <li>Partner organization info</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>For External Users</h3>
+                    <ul style="font-size: 1.1em;">
+                        <li>Learn about TFN mission</li>
+                        <li>Explore fellowship program</li>
+                        <li>Find school partnerships</li>
+                        <li>Contact information</li>
+                    </ul>
+                    <h3 style="margin-top: 25px;">For Researchers</h3>
+                    <ul style="font-size: 1.1em;">
+                        <li>Education data analysis</li>
+                        <li>Program effectiveness</li>
+                        <li>Alumni outcomes</li>
+                        <li>Geographic distribution</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 13: Benefits -->
+        <div class="slide">
+            <h2>Key Benefits</h2>
+            <div class="highlight-box">
+                TFN-AI transforms how Teach For Nepal accesses and utilizes organizational knowledge
+            </div>
+            <ul style="font-size: 1.3em;">
+                <li><strong>Time Savings:</strong> Instant answers instead of manual document searches</li>
+                <li><strong>Accuracy:</strong> AI-powered responses always cite verifiable sources</li>
+                <li><strong>Scalability:</strong> Handles thousands of documents and records effortlessly</li>
+                <li><strong>User-Friendly:</strong> Natural language queries, no special syntax needed</li>
+                <li><strong>Comprehensive:</strong> Combines multiple data sources in single responses</li>
+                <li><strong>Maintainable:</strong> Modular architecture for easy updates and extensions</li>
+            </ul>
+        </div>
+
+        <!-- Slide 14: Future Enhancements -->
+        <div class="slide">
+            <h2>Future Enhancements</h2>
+            <div class="two-column">
+                <div>
+                    <h3>Short-term</h3>
+                    <ul style="font-size: 1.1em;">
+                        <li>Multi-language support</li>
+                        <li>Voice input/output</li>
+                        <li>Mobile app version</li>
+                        <li>Export results to PDF/Excel</li>
+                        <li>Advanced filtering options</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>Long-term</h3>
+                    <ul style="font-size: 1.1em;">
+                        <li>Real-time data updates</li>
+                        <li>Predictive analytics</li>
+                        <li>Integration with CRM systems</li>
+                        <li>Automated report generation</li>
+                        <li>Custom dashboards</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="highlight-box" style="margin-top: 30px;">
+                <strong>Vision:</strong> Evolve into a comprehensive AI-powered knowledge management system for TFN
+            </div>
+        </div>
+
+        <!-- Slide 15: Technical Highlights -->
+        <div class="slide">
+            <h2>Technical Highlights</h2>
+            <div class="three-column">
+                <div class="feature-card">
+                    <h4>🚀 LangChain</h4>
+                    <p>Orchestrates document loading, chunking, retrieval, and LLM chaining</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🧠 FAISS</h4>
+                    <p>Fast similarity search over embedded document vectors</p>
+                </div>
+                <div class="feature-card">
+                    <h4>☁️ AWS Bedrock</h4>
+                    <p>Serverless AI with Nova Lite LLM and Titan v2 embeddings</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📝 PDO Prompts</h4>
+                    <p>Persona, Data, Objective engineering for accurate responses</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🔄 Hybrid Search</h4>
+                    <p>Combines exact matching with semantic similarity</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📊 Structured Data</h4>
+                    <p>Fast queries over JSON for alumni, fellows, schools</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 16: Thank You -->
+        <div class="slide title-slide">
+            <h1>Thank You!</h1>
+            <p class="subtitle" style="margin-top: 30px;">TFN-AI: Empowering Teach For Nepal with Intelligent AI</p>
+            <div style="margin-top: 60px; font-size: 1.2em;">
+                <p>📧 Contact: Teach For Nepal Team</p>
+                <p style="margin-top: 15px;">🌐 GitHub: TFN-AI-BOT Repository</p>
+                <p style="margin-top: 15px;">🔗 Built with Next.js, LangChain, AWS Bedrock, FAISS</p>
+            </div>
+            <p style="margin-top: 50px; font-size: 1.1em; opacity: 0.9;">Questions?</p>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="prevBtn" onclick="changeSlide(-1)">← Previous</button>
+        <span class="slide-number">
+            Slide <span id="currentSlide">1</span> of <span id="totalSlides">16</span>
+        </span>
+        <button id="nextBtn" onclick="changeSlide(1)">Next →</button>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+
+        document.getElementById('totalSlides').textContent = totalSlides;
+
+        function showSlide(n) {
+            slides.forEach(slide => slide.classList.remove('active'));
+            
+            if (n >= totalSlides) currentSlide = totalSlides - 1;
+            if (n < 0) currentSlide = 0;
+            
+            slides[currentSlide].classList.add('active');
+            document.getElementById('currentSlide').textContent = currentSlide + 1;
+            
+            document.getElementById('prevBtn').disabled = currentSlide === 0;
+            document.getElementById('nextBtn').disabled = currentSlide === totalSlides - 1;
+        }
+
+        function changeSlide(direction) {
+            currentSlide += direction;
+            showSlide(currentSlide);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') changeSlide(1);
+            if (e.key === 'ArrowLeft') changeSlide(-1);
+        });
+
+        showSlide(0);
+    </script>
+</body>
+</html>
