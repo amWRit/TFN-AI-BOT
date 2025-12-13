@@ -184,22 +184,46 @@ export default function Home() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  const processQuery = async (query) => {
+  const processQuery = async (query, showAll = false, replaceLast = false) => {
     if (!query.trim()) return;
-    
     setLoading(true);
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: query, timestamp: new Date() }]);
-
+    if (!replaceLast) {
+      setInput('');
+      setMessages(prev => [...prev, { role: 'user', content: query, timestamp: new Date() }]);
+    }
     try {
       const res = await fetch('/api/rag-alumni', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
+        body: JSON.stringify({ query, showAll })
       });
-      
       const data = await res.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data, timestamp: new Date() }]);
+      if (replaceLast) {
+        // Replace only the last assistant message, keep everything else
+        setMessages(prev => {
+          const newMessages = [...prev];
+          // Find last assistant message index
+          for (let i = newMessages.length - 1; i >= 0; i--) {
+            if (newMessages[i].role === 'assistant') {
+              newMessages[i] = { 
+                role: 'assistant', 
+                content: data, 
+                timestamp: new Date(),
+                originalQuery: query // Store the query for future "view all" clicks
+              };
+              break;
+            }
+          }
+          return newMessages;
+        });
+      } else {
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: data, 
+          timestamp: new Date(),
+          originalQuery: query // Store the query for future "view all" clicks
+        }]);
+      }
     } catch (error) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 
@@ -241,11 +265,17 @@ export default function Home() {
     return grouped;
   };
 
-  // Render structured data as cards - ADAPTIVE VERSION
+  // Render structured data as cards - FIXED VERSION
   const renderStructuredData = (msg) => {
     const groupedItems = getStructuredItems(msg);
     
     if (Object.keys(groupedItems).length === 0) return null;
+
+    // FIXED: Correct data access for hasMore and totalCount (top-level in msg.content)
+    const hasMore = msg.content?.hasMore;
+    const totalCount = msg.content?.totalCount;
+    // FIXED: Get original query from this specific assistant message
+    const originalQuery = msg.originalQuery;
 
     return (
       <>
@@ -261,6 +291,16 @@ export default function Home() {
             />
           );
         })}
+        {hasMore && originalQuery && (
+          <div className="mt-4 flex justify-center">
+            <button
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600/40 to-cyan-600/40 border border-purple-400/30 hover:border-purple-400/60 text-sm font-semibold text-white hover:bg-gradient-to-r hover:from-purple-600/60 hover:to-cyan-600/60 transition-all"
+              onClick={() => processQuery(originalQuery, true, true)}
+            >
+              View all ({totalCount})
+            </button>
+          </div>
+        )}
       </>
     );
   };
@@ -395,12 +435,12 @@ export default function Home() {
                     </div>
                   )}
                   <div className={`flex-1 px-5 py-4 rounded-2xl ${
-                      msg.role === 'user'
-                        ? 'bg-gradient-to-r from-purple-600 to-pink-600 rounded-br-none'
-                        : msg.error
-                        ? 'bg-red-900/30 border border-red-500/30 rounded-bl-none'
-                        : 'bg-white/10 backdrop-blur-md border border-white/20 rounded-bl-none'
-                    }`}
+                    msg.role === 'user'
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 rounded-br-none'
+                      : msg.error
+                      ? 'bg-red-900/30 border border-red-500/30 rounded-bl-none'
+                      : 'bg-white/10 backdrop-blur-md border border-white/20 rounded-bl-none'
+                  }`}
                   >
                     {msg.role === 'user' ? (
                       <p className="text-white font-medium leading-relaxed">{msg.content}</p>
