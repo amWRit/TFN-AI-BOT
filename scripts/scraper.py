@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
 TFN Flexible Web Scraper - ✅ TRUE LAST PAGE DETECTION (NO LOOPING!)
-
-Usage: python scripts/scraper.py --scrape-all
+✅ FIXED: profile_url extracts href for ALL sites (keeps config!)
 """
 
 import os
@@ -12,6 +11,7 @@ import time
 import argparse
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
+
 
 # ==================== CLEAN BASE CONFIGURATION ====================
 SCRAPER_CONFIGS = {
@@ -24,7 +24,7 @@ SCRAPER_CONFIGS = {
             "name": ".nameSection a.name",
             "school": ".nameSection li a[href*='/school/']",
             "bio": ".textDespHolder p",
-            "profile_url": ".nameSection a.name, .viewProfileBtn"
+            "profile_url": ".nameSection a.name"
         },
         "output_key": "alumni"
     },
@@ -37,7 +37,7 @@ SCRAPER_CONFIGS = {
         "fields": {
             "name": ".nameSection a.name",
             "bio": ".textDespHolder p",
-            "profile_url": ".nameSection a.name, .viewProfileBtn"
+            "profile_url": ".nameSection a.name"
         },
         "output_key": "fellows"
     },
@@ -57,6 +57,7 @@ SCRAPER_CONFIGS = {
         "output_key": "schools"
     }
 }
+
 
 def scrape_flexible(sites=None):
     """Main flexible scraper entrypoint."""
@@ -90,6 +91,7 @@ def scrape_flexible(sites=None):
     save_results(all_results)
     return all_results
 
+
 def scrape_schools_all_districts(schools_config, headers):
     """Scrape ALL school districts → MERGE into single schools array."""
     print("\n🏫 Scraping ALL School Districts...")
@@ -112,6 +114,7 @@ def scrape_schools_all_districts(schools_config, headers):
         time.sleep(2)
     
     return {"schools": all_schools}
+
 
 def scrape_site(config, headers):
     """✅ FIXED: Check pagination BEFORE incrementing page!"""
@@ -149,6 +152,7 @@ def scrape_site(config, headers):
     print(f"        ✅ Site complete: {len(data)} total items")
     return data
 
+
 def is_true_last_page(soup, config, current_page):
     """✅ TRUE LAST PAGE: BOTH Prev+Next DISABLED OR no next links."""
     
@@ -182,6 +186,7 @@ def is_true_last_page(soup, config, current_page):
     
     return False
 
+
 def analyze_pagination(soup, config, current_page):
     """Detailed pagination analysis."""
     status = []
@@ -197,6 +202,7 @@ def analyze_pagination(soup, config, current_page):
     
     return " | ".join(status)
 
+
 def get_active_page_number(soup):
     """Get current active page number."""
     active_link = soup.select_one(".pagination li.active a")
@@ -208,6 +214,7 @@ def get_active_page_number(soup):
             except:
                 pass
     return 1
+
 
 def scrape_paginated_page(url, config, headers):
     """Extract items from page."""
@@ -238,15 +245,40 @@ def scrape_paginated_page(url, config, headers):
         print(f"        ❌ Error on {url}: {str(e)[:60]}")
         return []
 
+
 def extract_item(container, config):
-    """Extract data from single container."""
+    """Extract data from single container - ✅ FIXED: href for profile_url, keeps config."""
     item = {
         "source": "web_scraped", 
         "scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")
     }
     
     fields = config.get("fields", {})
+    
+    # ✅ SPECIAL CASE: Handle profile_url FIRST (extracts href, not text)
+    if "profile_url" in fields:
+        profile_selectors = [s.strip() for s in fields["profile_url"].split(',')]
+        profile_link = None
+        for sel in profile_selectors:
+            profile_link = container.select_one(sel)
+            if profile_link and profile_link.get('href'):
+                break
+        
+        if profile_link and profile_link.get('href'):
+            profile_href = profile_link['href']
+            if not profile_href.startswith('http'):
+                profile_href = urljoin(config.get("base_url", "https://www.teachfornepal.org/"), profile_href)
+            item["profile_url"] = profile_href
+            
+            # Also set name from same link if not already set
+            if "name" not in item or not item["name"]:
+                item["name"] = profile_link.get_text().strip()
+    
+    # Generic fields loop for ALL fields (including profile_url config preservation)
     for field_name, selector in fields.items():
+        if field_name == "profile_url":  # Already handled above
+            continue
+            
         selectors = [s.strip() for s in selector.split(',')]
         for sel in selectors:
             elem = container.select_one(sel)
@@ -254,21 +286,18 @@ def extract_item(container, config):
                 item[field_name] = elem.get_text().strip()
                 break
     
-    # 👈 NEW: Special handling for school profile URLs
-    if "profile_url" in item and config.get("current_district"):
-        # For schools, construct district URL directly
+    # Special handling for schools district URLs (fallback)
+    if config.get("current_district") and not item.get("profile_url"):
         district = config["current_district"]
         item["profile_url"] = f"https://www.teachfornepal.org/tfn/school/district/{district}/"
-    else:
-        # Fallback URL joining for non-schools
-        for field_name in ['profile_url', 'url']:
-            if field_name in item and item[field_name] and not item[field_name].startswith('http'):
-                item[field_name] = urljoin(config.get("base_url", ""), item[field_name])
     
-    if len([v for v in item.values() if v and v not in ["web_scraped"]]) <= 1:
+    # Filter invalid items
+    valid_fields = [v for v in item.values() if v and v not in ["web_scraped", ""]]
+    if len(valid_fields) <= 1:
         return None
     
     return item
+
 
 def save_results(results):
     """Merge all scraped data into JSON."""
@@ -291,13 +320,16 @@ def save_results(results):
     
     print(f"💾 Saved to: {json_path}")
 
+
 # ==================== CLI ====================
 def parse_args():
+    print("🚀 SCRIPT STARTED - DEBUG MODE")
     parser = argparse.ArgumentParser(description="TFN Flexible Web Scraper")
     parser.add_argument("--sites", nargs="*", default=["alumni", "fellows", "schools"])
     parser.add_argument("--test", help="Test single site")
     parser.add_argument("--scrape-all", action="store_true", help="Scrape ALL sites")
     return parser.parse_args()
+
 
 if __name__ == "__main__":
     args = parse_args()
