@@ -363,11 +363,24 @@ export async function POST(request) {
   try {
     const { query, showAll = false, aws_creds } = await request.json();
 
-    const credentials = aws_creds || {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      sessionToken: process.env.AWS_SESSION_TOKEN || undefined,
-    };
+    let credentials;
+    if (aws_creds && Object.keys(aws_creds).length > 0) {
+      credentials = aws_creds;
+      console.log('🔑 Using CLIENT credentials (no STS test)');
+      console.log('🔑 Client sessionToken:', !!aws_creds.sessionToken);
+    } else {
+      credentials = {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        sessionToken: process.env.AWS_SESSION_TOKEN,
+      };
+      console.log('🔑 Using VERCEL credentials');
+    }
+
+    // Validate Vercel creds exist as fallback
+    if (!credentials.accessKeyId) {
+      throw new Error('No valid AWS credentials available (client or Vercel)');
+    }
 
     // PRIORITY: Client creds > Vercel env vars
     console.log('🔑 Creds source:', aws_creds ? 'CLIENT' : 'VERCEL');

@@ -193,14 +193,19 @@ export default function Home() {
       setMessages(prev => [...prev, { role: 'user', content: query, timestamp: new Date() }]);
     }
     try {
-      const awsCreds = JSON.parse(sessionStorage.getItem('aws_creds') || '{}');
+      // const awsCreds = JSON.parse(sessionStorage.getItem('aws_creds') || '{}');
+
+      const awsCredsRaw = sessionStorage.getItem('aws_creds');
+      const awsCreds = awsCredsRaw ? JSON.parse(awsCredsRaw) : {};
+      const hasValidCreds = awsCreds.accessKeyId && awsCreds.secretAccessKey;
+
       const res = await fetch('/api/rag-alumni', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           query, 
           showAll,
-          aws_creds: Object.keys(awsCreds).length ? awsCreds : undefined  // Only send if set
+          aws_creds: hasValidCreds ? awsCreds : undefined  // Only send if VALID
         })
       });
       const data = await res.json();
