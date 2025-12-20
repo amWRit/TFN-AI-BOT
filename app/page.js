@@ -175,7 +175,7 @@ export default function Home() {
   const [docsCount, setDocsCount] = useState(0);
   const chatEndRef = useRef(null);
 
-  const [showDemoWarning, setShowDemoWarning] = useState(false);
+  const [showDemoWarning, setShowDemoWarning] = useState(true);
    
   useEffect(() => {
     fetch('/tfn-documents.json')
@@ -189,22 +189,43 @@ export default function Home() {
   }, [messages, loading]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const sessionCreds = sessionStorage.getItem('aws_creds');
-      const envAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-      
-      // Keep for console debug
-      console.log('🔍 Creds Check:', {
-        hasSessionCreds: !!sessionCreds,
-        sessionLength: sessionCreds ? sessionCreds.length : 0,
-        hasEnvCreds: !!envAccessKey,
-        envAccessKeyStartsWith: envAccessKey?.substring(0, 4) + '...'
-      });
+    const testCreds = async () => {
+      if (typeof window !== 'undefined') {
+        try {
+          // 1️⃣ TEST ENV CREDS FIRST
+          let result = await fetch('/api/test-aws?source=env', { method: 'POST' });
+          result = await result.json();
+          
+          console.log('🔍 ENV Test:', result);
+          if (result.success) {
+            setShowDemoWarning(false);
+            return; // ✅ Env works!
+          }
+          
+          // 2️⃣ TEST SESSIONSTORAGE if env failed
+          const sessionCreds = sessionStorage.getItem('aws_creds');
+          if (sessionCreds) {
+            result = await fetch('/api/test-aws?source=session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ aws_creds: sessionCreds })
+            });
+            result = await result.json();
+            
+            console.log('🔍 Session Test:', result);
+            setShowDemoWarning(!result.success);
+          } else {
+            setShowDemoWarning(true); // No session creds
+          }
+          
+        } catch (error) {
+          console.log('❌ Creds test failed:', error.message);
+          setShowDemoWarning(true);
+        }
+      }
+    };
 
-      const hasSessionCreds = !!sessionCreds;
-      const hasEnvCreds = !!envAccessKey;
-      setShowDemoWarning(!hasSessionCreds && !hasEnvCreds);
-    }
+    testCreds();
   }, []);
 
   const processQuery = async (query, showAll = false, replaceLast = false) => {

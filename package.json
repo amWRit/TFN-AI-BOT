@@ -9,16 +9,18 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock": "^3.956.0",
+    "@aws-sdk/client-sts": "^3.956.0",
     "@langchain/aws": "^0.1.15",
     "@langchain/community": "^0.2.0",
     "@langchain/core": "^0.3.58",
     "chromadb": "^1.0.3",
+    "faiss-node": "^0.5.1",
     "lucide-react": "^0.400.0",
     "next": "14.0.4",
+    "pickleparser": "^0.2.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "faiss-node": "^0.5.1",
-    "pickleparser": "^0.2.1"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@welldone-software/why-did-you-render": "^8.0.3",
