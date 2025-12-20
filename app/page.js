@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Zap, FileText, Plus, MessageCircle, User, Building2, ChevronDown, ChevronUp, Database } from 'lucide-react';
+import Link from 'next/link';
+import { Send, Loader2, Zap, FileText, Plus, MessageCircle, User, Building2, ChevronDown, ChevronUp, Database, Settings } from 'lucide-react';
 
 // Adaptive Structured Data Card Renderer
 function AdaptiveStructuredCards({ items, type, colorScheme = 'purple' }) {
@@ -192,10 +193,15 @@ export default function Home() {
       setMessages(prev => [...prev, { role: 'user', content: query, timestamp: new Date() }]);
     }
     try {
+      const awsCreds = JSON.parse(sessionStorage.getItem('aws_creds') || '{}');
       const res = await fetch('/api/rag-alumni', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, showAll })
+        body: JSON.stringify({ 
+          query, 
+          showAll,
+          aws_creds: Object.keys(awsCreds).length ? awsCreds : undefined  // Only send if set
+        })
       });
       const data = await res.json();
       if (replaceLast) {
@@ -330,15 +336,25 @@ export default function Home() {
               <p className="text-xs text-purple-300/70 mt-0.5">{docsCount} documents • Ready</p>
             </div>
           </div>
-          {messages.length > 0 && (
-            <button
-              onClick={handleNewChat}
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600/40 to-cyan-600/40 border border-purple-400/30 hover:border-purple-400/60 text-sm font-semibold text-white hover:bg-gradient-to-r hover:from-purple-600/60 hover:to-cyan-600/60 transition-all"
+          <div className="flex gap-2">
+            {messages.length > 0 && (
+              <button
+                onClick={handleNewChat}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600/40 to-cyan-600/40 border border-purple-400/30 hover:border-purple-400/60 text-sm font-semibold text-white hover:bg-gradient-to-r hover:from-purple-600/60 hover:to-cyan-600/60 transition-all flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                New Chat
+              </button>
+            )}
+            <Link 
+              href="/settings" 
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-600/40 to-blue-600/40 border border-cyan-400/30 hover:border-cyan-400/60 text-sm font-semibold text-white hover:bg-gradient-to-r hover:from-cyan-600/60 hover:to-blue-600/60 transition-all flex items-center gap-2"
             >
-              <Plus className="w-4 h-4 inline mr-2" />
-              New Chat
-            </button>
-          )}
+              <Settings className="w-4 h-4" />
+              AWS Settings
+            </Link>
+          </div>
+
         </div>
       </div>
 

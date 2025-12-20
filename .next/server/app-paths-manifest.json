@@ -1,5 +1,6 @@
 {
   "/not-found": "app/not-found.js",
-  "/page": "app/page.js",
-  "/api/rag-alumni/route": "app/api/rag-alumni/route.js"
+  "/settings/page": "app/settings/page.js",
+  "/api/rag-alumni/route": "app/api/rag-alumni/route.js",
+  "/page": "app/page.js"
 }
