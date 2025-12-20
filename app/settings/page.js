@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+import Link from 'next/link';
+import { Home, ArrowLeft } from 'lucide-react';
 
 export default function Settings() {
   const [creds, setCreds] = useState({ accessKeyId: '', secretAccessKey: '', sessionToken: '' });
@@ -70,8 +72,26 @@ export default function Settings() {
         )}
         
         <p className="mt-6 text-xs text-gray-400 text-center">
-          Stored locally (clears on tab close). Falls back to Vercel env vars.
+          Stored locally (clears on tab close). Falls back to .ENV vars.
         </p>
+
+        <div className="mt-8 pt-6 border-t border-white/10 flex gap-3">
+          <Link 
+            href="/" 
+            className="flex-1 bg-gradient-to-r from-purple-600/40 to-cyan-600/40 border border-purple-400/30 hover:border-purple-400/60 text-sm font-semibold text-white py-3 px-6 rounded-xl hover:bg-gradient-to-r hover:from-purple-600/60 hover:to-cyan-600/60 transition-all flex items-center justify-center gap-2"
+          >
+            <Home className="w-4 h-4" />
+            Go to Chat
+          </Link>
+          <Link 
+            href="/" 
+            className="px-6 py-3 bg-gradient-to-r from-gray-600/40 to-gray-700/40 border border-gray-400/30 hover:border-gray-400/60 text-sm font-semibold text-white rounded-xl hover:bg-gradient-to-r hover:from-gray-600/60 hover:to-gray-700/60 transition-all flex items-center justify-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Link>
+        </div>
+
       </div>
     </div>
   );

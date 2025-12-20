@@ -1,7 +1,8 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Send, Loader2, Zap, FileText, Plus, MessageCircle, User, Building2, ChevronDown, ChevronUp, Database, Settings } from 'lucide-react';
+import { Send, Loader2, Zap, FileText, Plus, MessageCircle, User, Building2, 
+  ChevronDown, ChevronUp, Database, Settings } from 'lucide-react';
 
 // Adaptive Structured Data Card Renderer
 function AdaptiveStructuredCards({ items, type, colorScheme = 'purple' }) {
@@ -329,18 +330,25 @@ export default function Home() {
       {/* Header */}
       <div className="relative z-10 border-b border-purple-500/20 bg-black/40 backdrop-blur-md sticky top-0">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative w-12 h-12 bg-gradient-to-br from-purple-500 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/50">
+          <div 
+            className="flex items-center gap-3 hover:scale-105 transition-all group cursor-pointer select-none"
+            onClick={handleNewChat}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && handleNewChat()}
+          >
+            <div className="relative w-12 h-12 bg-gradient-to-br from-purple-500 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/50 group-hover:shadow-purple-500/70 transition-all">
               <MessageCircle className="w-6 h-6 text-white" />
-              <div className="absolute inset-0 rounded-lg border border-purple-400/50" />
+              <div className="absolute inset-0 rounded-lg border border-purple-400/50 group-hover:border-purple-400/70" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-300 via-pink-300 to-cyan-300 bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-300 via-pink-300 to-cyan-300 bg-clip-text text-transparent group-hover:scale-105 transition-transform">
                 TFN-AI
               </h1>
               <p className="text-xs text-purple-300/70 mt-0.5">{docsCount} documents • Ready</p>
             </div>
           </div>
+
           <div className="flex gap-2">
             {messages.length > 0 && (
               <button
