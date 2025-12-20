@@ -1,6 +1,8 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Zap, FileText, Plus, MessageCircle, User, Building2, ChevronDown, ChevronUp, Database } from 'lucide-react';
+import Link from 'next/link';
+import { Send, Loader2, Zap, FileText, Plus, MessageCircle, User, Building2, 
+  ChevronDown, ChevronUp, Database, Settings } from 'lucide-react';
 
 // Adaptive Structured Data Card Renderer
 function AdaptiveStructuredCards({ items, type, colorScheme = 'purple' }) {
@@ -192,10 +194,20 @@ export default function Home() {
       setMessages(prev => [...prev, { role: 'user', content: query, timestamp: new Date() }]);
     }
     try {
+      // const awsCreds = JSON.parse(sessionStorage.getItem('aws_creds') || '{}');
+
+      const awsCredsRaw = sessionStorage.getItem('aws_creds');
+      const awsCreds = awsCredsRaw ? JSON.parse(awsCredsRaw) : {};
+      const hasValidCreds = awsCreds.accessKeyId && awsCreds.secretAccessKey;
+
       const res = await fetch('/api/rag-alumni', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, showAll })
+        body: JSON.stringify({ 
+          query, 
+          showAll,
+          aws_creds: hasValidCreds ? awsCreds : undefined  // Only send if VALID
+        })
       });
       const data = await res.json();
       if (replaceLast) {
@@ -318,27 +330,44 @@ export default function Home() {
       {/* Header */}
       <div className="relative z-10 border-b border-purple-500/20 bg-black/40 backdrop-blur-md sticky top-0">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative w-12 h-12 bg-gradient-to-br from-purple-500 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/50">
+          <div 
+            className="flex items-center gap-3 hover:scale-105 transition-all group cursor-pointer select-none"
+            onClick={handleNewChat}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && handleNewChat()}
+          >
+            <div className="relative w-12 h-12 bg-gradient-to-br from-purple-500 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/50 group-hover:shadow-purple-500/70 transition-all">
               <MessageCircle className="w-6 h-6 text-white" />
-              <div className="absolute inset-0 rounded-lg border border-purple-400/50" />
+              <div className="absolute inset-0 rounded-lg border border-purple-400/50 group-hover:border-purple-400/70" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-300 via-pink-300 to-cyan-300 bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-300 via-pink-300 to-cyan-300 bg-clip-text text-transparent group-hover:scale-105 transition-transform">
                 TFN-AI
               </h1>
               <p className="text-xs text-purple-300/70 mt-0.5">{docsCount} documents • Ready</p>
             </div>
           </div>
-          {messages.length > 0 && (
-            <button
-              onClick={handleNewChat}
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600/40 to-cyan-600/40 border border-purple-400/30 hover:border-purple-400/60 text-sm font-semibold text-white hover:bg-gradient-to-r hover:from-purple-600/60 hover:to-cyan-600/60 transition-all"
+
+          <div className="flex gap-2">
+            {messages.length > 0 && (
+              <button
+                onClick={handleNewChat}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600/40 to-cyan-600/40 border border-purple-400/30 hover:border-purple-400/60 text-sm font-semibold text-white hover:bg-gradient-to-r hover:from-purple-600/60 hover:to-cyan-600/60 transition-all flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                New Chat
+              </button>
+            )}
+            <Link 
+              href="/settings" 
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-600/40 to-blue-600/40 border border-cyan-400/30 hover:border-cyan-400/60 text-sm font-semibold text-white hover:bg-gradient-to-r hover:from-cyan-600/60 hover:to-blue-600/60 transition-all flex items-center gap-2"
             >
-              <Plus className="w-4 h-4 inline mr-2" />
-              New Chat
-            </button>
-          )}
+              <Settings className="w-4 h-4" />
+              AWS Settings
+            </Link>
+          </div>
+
         </div>
       </div>
 

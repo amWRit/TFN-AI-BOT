@@ -307,7 +307,7 @@ function formatStructuredContext(results, type, showAll = false, totalCountOverr
 
 // ===== VECTOR STORE FUNCTIONS =====
 
-async function getVectorStore() {
+async function getVectorStore(creds) {
   if (cachedVectorStore) {
     console.log('⚡ Using cached vector store (instant!)');
     return cachedVectorStore;
@@ -315,11 +315,7 @@ async function getVectorStore() {
 
   const embeddings = new BedrockEmbeddings({
     region: process.env.AWS_REGION,
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      sessionToken: process.env.AWS_SESSION_TOKEN || undefined,
-    },
+    credentials: creds,
     model: 'amazon.titan-embed-text-v2:0'
   });
 
@@ -345,17 +341,13 @@ async function getVectorStore() {
   }
 }
 
-function getLLM() {
+function getLLM(creds) {
   if (!cachedLLM) {
     console.log('🤖 Initializing Bedrock LLM...');
     cachedLLM = new ChatBedrockConverse({
       model: process.env.BEDROCK_MODEL_ID || 'amazon.nova-lite-v1:0',
       region: process.env.AWS_REGION,
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-        sessionToken: process.env.AWS_SESSION_TOKEN || undefined,
-      },
+      credentials: creds,
       temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.1'),
       maxTokens: 1024
     });
@@ -369,8 +361,32 @@ function getLLM() {
 
 export async function POST(request) {
   try {
-    const { query, showAll = false } = await request.json();
+    const { query, showAll = false, aws_creds } = await request.json();
 
+    let credentials;
+    if (aws_creds && Object.keys(aws_creds).length > 0) {
+      credentials = aws_creds;
+      console.log('🔑 Using CLIENT credentials');
+      console.log('🔑 Client sessionToken:', !!aws_creds.sessionToken);
+    } else {
+      credentials = {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        sessionToken: process.env.AWS_SESSION_TOKEN,
+      };
+      console.log('🔑 Using .env credentials');
+    }
+
+    // Validate Vercel creds exist as fallback
+    if (!credentials.accessKeyId) {
+      throw new Error('No valid AWS credentials available (client or .env)');
+    }
+
+    // PRIORITY: Client creds > Vercel env vars
+    console.log('🔑 Creds source:', aws_creds ? 'CLIENT' : '.ENV');
+    console.log('🔑 Has sessionToken:', !!credentials.sessionToken);
+    console.log('🔑 Region:', process.env.AWS_REGION);
+    
     if (!query || query.trim().length === 0) {
       return Response.json({ error: 'Query is required' }, { status: 400 });
     }
@@ -431,11 +447,18 @@ export async function POST(request) {
     }
 
     // STEP 3: Get vector store and retriever
-    const vectorStore = await getVectorStore();
+    const vectorStore = await getVectorStore(credentials);
     const retriever = vectorStore.asRetriever({ k: 3 });
 
     // STEP 4: Get LLM
-    const model = getLLM();
+    const model = getLLM(credentials);
+
+    // Clear cache on new creds (prevents stale auth)
+    if (aws_creds) {
+      cachedVectorStore = null;
+      cachedLLM = null;
+      console.log('🔑 Using client-submitted AWS credentials');
+    }
 
     // STEP 5: Create RAG chain
     const prompt = ChatPromptTemplate.fromTemplate(`
