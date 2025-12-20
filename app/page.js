@@ -175,6 +175,8 @@ export default function Home() {
   const [docsCount, setDocsCount] = useState(0);
   const chatEndRef = useRef(null);
 
+  const [showDemoWarning, setShowDemoWarning] = useState(false);
+   
   useEffect(() => {
     fetch('/tfn-documents.json')
       .then(res => res.json())
@@ -185,6 +187,25 @@ export default function Home() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const sessionCreds = sessionStorage.getItem('aws_creds');
+      const envAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+      
+      // Keep for console debug
+      console.log('🔍 Creds Check:', {
+        hasSessionCreds: !!sessionCreds,
+        sessionLength: sessionCreds ? sessionCreds.length : 0,
+        hasEnvCreds: !!envAccessKey,
+        envAccessKeyStartsWith: envAccessKey?.substring(0, 4) + '...'
+      });
+
+      const hasSessionCreds = !!sessionCreds;
+      const hasEnvCreds = !!envAccessKey;
+      setShowDemoWarning(!hasSessionCreds && !hasEnvCreds);
+    }
+  }, []);
 
   const processQuery = async (query, showAll = false, replaceLast = false) => {
     if (!query.trim()) return;
@@ -539,6 +560,21 @@ export default function Home() {
       {/* Input Area */}
       <div className="relative z-10 border-t border-purple-500/20 bg-black/40 backdrop-blur-md sticky bottom-0 px-6 py-4">
         <div className="max-w-4xl mx-auto">
+          {showDemoWarning && (
+            <div className="mb-4 p-3 bg-orange-500/20 border border-orange-400/30 rounded-xl backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-orange-500/80 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-white font-bold text-sm">⚠️</span>
+                </div>
+                <div>
+                  <p className="text-orange-100 font-semibold text-sm">No AWS credentials detected</p>
+                  <p className="text-orange-200 text-xs mt-0.5">
+                    Add your AWS credentials for full access
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex gap-3">
             <input
               value={input}
