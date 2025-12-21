@@ -175,57 +175,96 @@ export default function Home() {
   const [docsCount, setDocsCount] = useState(0);
   const chatEndRef = useRef(null);
 
-  const [showDemoWarning, setShowDemoWarning] = useState(true);
-   
-  useEffect(() => {
-    fetch('/tfn-documents.json')
-      .then(res => res.json())
-      .then(data => setDocsCount(data.length))
-      .catch(() => setDocsCount(6));
-  }, []);
+  const [showDemoWarning, setShowDemoWarning] = useState(false);
+  const [lastCredsCheck, setLastCredsCheck] = useState(0);
+  
+  const testCredsAndShowWarning = async () => {
+    const now = Date.now();
+    // if (now - lastCredsCheck < 300000) return true; // 👈 Cache hit = creds OK
+    const CACHE_KEY = 'awsCredsTest';
+    const CACHE_TTL = 300000; // 5min
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { timestamp, failed } = JSON.parse(cached);
+        if (now - timestamp < CACHE_TTL) {
+          console.log('🔍 Value in awsCredsTest Cache:', failed ? 'FAILED' : 'OK');
+          return failed;  // RETURN STORED RESULT (true=failed, false=OK)
+        }
+      }
+
+      // Test ENV first
+      const envTest = await fetch('/api/test-aws?source=env', { 
+        method: 'POST'
+      });
+      const envResult = await envTest.json();
+      
+      console.log('🔍 ENV Test:', envResult);
+      
+      if (envResult.success) {
+        setShowDemoWarning(false);
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: now, failed: false }));
+        // setLastCredsCheck(now);
+        return false;  // 👈 ENV creds OK
+      }
+      
+      // Test sessionStorage
+      if (typeof window !== 'undefined') {
+        const sessionCreds = sessionStorage.getItem('aws_creds');
+        if (sessionCreds) {
+          const sessionTest = await fetch('/api/test-aws?source=session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ aws_creds: sessionCreds })
+          });
+          const sessionResult = await sessionTest.json();
+          
+          console.log('🔍 Session Test:', sessionResult);
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ 
+            timestamp: now, 
+            failed: !sessionResult.success 
+          }));
+
+          if (sessionResult.success) {
+            setShowDemoWarning(false);
+            return false;  // 👈 Session creds OK
+          } else {
+            setShowDemoWarning(true);
+            return true;   // 👈 Session creds FAILED
+          }
+        }
+        else {
+          console.log('🔍 Session Test: Creds not found');
+        }
+      }
+      
+      // No creds found
+      setShowDemoWarning(true);
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: now, failed: true }));
+      return true;  // 👈 No creds = FAILED
+      
+    } catch (error) {
+      console.error('Creds test error:', error);
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: now, failed: true }));
+      setShowDemoWarning(true);
+      return true;  // 👈 Test error = FAILED
+    }
+  };
+
+
+  // useEffect(() => {
+  //   fetch('/tfn-documents.json')
+  //     .then(res => res.json())
+  //     .then(data => setDocsCount(data.length))
+  //     .catch(() => setDocsCount(6));
+  // }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
   useEffect(() => {
-    const testCreds = async () => {
-      if (typeof window !== 'undefined') {
-        try {
-          // 1️⃣ TEST ENV CREDS FIRST
-          let result = await fetch('/api/test-aws?source=env', { method: 'POST' });
-          result = await result.json();
-          
-          console.log('🔍 ENV Test:', result);
-          if (result.success) {
-            setShowDemoWarning(false);
-            return; // ✅ Env works!
-          }
-          
-          // 2️⃣ TEST SESSIONSTORAGE if env failed
-          const sessionCreds = sessionStorage.getItem('aws_creds');
-          if (sessionCreds) {
-            result = await fetch('/api/test-aws?source=session', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ aws_creds: sessionCreds })
-            });
-            result = await result.json();
-            
-            console.log('🔍 Session Test:', result);
-            setShowDemoWarning(!result.success);
-          } else {
-            setShowDemoWarning(true); // No session creds
-          }
-          
-        } catch (error) {
-          console.log('❌ Creds test failed:', error.message);
-          setShowDemoWarning(true);
-        }
-      }
-    };
-
-    testCreds();
+    testCredsAndShowWarning();  // 👈 CALL THE FUNCTION
   }, []);
 
   const processQuery = async (query, showAll = false, replaceLast = false) => {
@@ -237,7 +276,7 @@ export default function Home() {
     }
     try {
       // const awsCreds = JSON.parse(sessionStorage.getItem('aws_creds') || '{}');
-
+      // console.log('Trying RAG...');
       const awsCredsRaw = sessionStorage.getItem('aws_creds');
       const awsCreds = awsCredsRaw ? JSON.parse(awsCredsRaw) : {};
       const hasValidCreds = awsCreds.accessKeyId && awsCreds.secretAccessKey;
@@ -251,6 +290,25 @@ export default function Home() {
           aws_creds: hasValidCreds ? awsCreds : undefined  // Only send if VALID
         })
       });
+
+      console.log('RAG Response:', res.status, res.statusText, res.ok);
+      
+      if (!res.ok) {
+        localStorage.removeItem('awsCredsTest');
+        const credsFailed = await testCredsAndShowWarning();
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: { 
+            answer: credsFailed 
+              ? '⚠️ AWS credentials expired. Please update in Settings.' 
+              : '⚠️ Server error. Please try again.'
+          },
+          error: true
+        }]);
+        setLoading(false);
+        return;
+      }
+
       const data = await res.json();
       if (replaceLast) {
         // Replace only the last assistant message, keep everything else
@@ -279,10 +337,17 @@ export default function Home() {
         }]);
       }
     } catch (error) {
+      console.error('Query error:', error);
+      
+      const credsFailed = await testCredsAndShowWarning();  // Returns boolean
+      
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: { answer: 'Sorry, I encountered an error processing your request. Please try again.' },
-        timestamp: new Date(),
+        content: { 
+          answer: credsFailed 
+            ? '⚠️ AWS credentials expired. Please update in Settings.' 
+            : '⚠️ Query failed. Please try again.'  // Generic error
+        },
         error: true
       }]);
     } finally {
@@ -588,9 +653,9 @@ export default function Home() {
                   <span className="text-white font-bold text-sm">⚠️</span>
                 </div>
                 <div>
-                  <p className="text-orange-100 font-semibold text-sm">No AWS credentials detected</p>
+                  <p className="text-orange-100 font-semibold text-sm">AWS credentials not detected or expired</p>
                   <p className="text-orange-200 text-xs mt-0.5">
-                    Add your AWS credentials for full access
+                    Add credentials for full access
                   </p>
                 </div>
               </div>
@@ -601,18 +666,18 @@ export default function Home() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !loading && input.trim()) {
+                if (e.key === 'Enter' && !loading && input.trim() && !credsFailed) {
                   e.preventDefault();
                   processQuery(input);
                 }
               }}
               placeholder="Ask about TFN..."
               className="flex-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl px-5 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-              disabled={loading}
+              disabled={loading || showDemoWarning}
             />
             <button
               onClick={() => processQuery(input)}
-              disabled={loading || !input.trim()}
+              disabled={loading || !input.trim() || credsFailed}
               className="px-6 py-3 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 disabled:from-gray-600 disabled:to-gray-700 disabled:opacity-50 rounded-xl text-white font-semibold transition-all shadow-lg shadow-purple-500/20"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}

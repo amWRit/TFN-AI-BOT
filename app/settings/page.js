@@ -10,6 +10,8 @@ export default function Settings() {
   const saveCreds = (e) => {
     e.preventDefault();
     sessionStorage.setItem('aws_creds', JSON.stringify(creds));
+    // setShowDemoWarning(false);
+    localStorage.removeItem('awsCredsTest');
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
