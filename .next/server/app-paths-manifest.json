@@ -1,6 +1,6 @@
 {
-  "/not-found": "app/not-found.js",
-  "/settings/page": "app/settings/page.js",
   "/page": "app/page.js",
+  "/api/test-aws/route": "app/api/test-aws/route.js",
+  "/settings/page": "app/settings/page.js",
   "/api/rag-alumni/route": "app/api/rag-alumni/route.js"
 }

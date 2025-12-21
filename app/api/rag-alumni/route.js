@@ -316,7 +316,8 @@ async function getVectorStore(creds) {
   const embeddings = new BedrockEmbeddings({
     region: process.env.AWS_REGION,
     credentials: creds,
-    model: 'amazon.titan-embed-text-v2:0'
+    model: 'amazon.titan-embed-text-v2:0',
+    maxRetries: 1
   });
 
   const vectorStorePath = path.join(process.cwd(), 'public', 'vector-store');
@@ -377,7 +378,6 @@ export async function POST(request) {
       console.log('🔑 Using .env credentials');
     }
 
-    // Validate Vercel creds exist as fallback
     if (!credentials.accessKeyId) {
       throw new Error('No valid AWS credentials available (client or .env)');
     }
