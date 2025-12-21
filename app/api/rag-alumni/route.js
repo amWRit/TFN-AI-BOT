@@ -1,4 +1,4 @@
-// app/api/rag-alumni/route.js - FIXED Complete Code (No more 'formatted' error)
+// app/api/rag-alumni/route.js -
 import { ChatBedrockConverse } from "@langchain/aws";
 import { BedrockEmbeddings } from "@langchain/aws";
 import { FaissStore } from '@langchain/community/vectorstores/faiss';
@@ -8,7 +8,7 @@ import { StringOutputParser } from '@langchain/core/output_parsers';
 import path from 'path';
 import fs from 'fs';
 
-// ✅ CACHE: Store vector store, LLM, and structured data in memory
+// CACHE: Store vector store, LLM, and structured data in memory
 let cachedVectorStore = null;
 let cachedLLM = null;
 let cachedStructuredData = null;
@@ -420,7 +420,7 @@ export async function POST(request) {
       );
 
       const results = searchResult.results;  // Only limited results
-      const totalStructuredCount = searchResult.totalCount;  // Full count!
+      const totalStructuredCount = searchResult.totalCount;  // Full count
 
       if (results.length > 0) {
         console.log(`✅ Found ${results.length} structured results (total: ${totalStructuredCount})`);
@@ -516,7 +516,7 @@ Answer:`);
 
     console.log('✅ Query completed successfully');
 
-    // STEP 7: FIXED Response - No more 'formatted' reference
+    // STEP 7: FIXED Response
     const allSources = [...structuredSources, ...ragSources];
 
     const responseData = {
@@ -530,7 +530,7 @@ Answer:`);
       status: 'success'
     };
 
-    // ✅ FIXED: Use structuredResponse (always defined)
+    // structuredResponse (always defined)
     if (structuredSources.length > 0) {
       responseData.hasMore = structuredResponse.hasMore;
       responseData.totalCount = structuredResponse.totalCount;

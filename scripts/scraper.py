@@ -100,7 +100,7 @@ def scrape_schools_all_districts(schools_config, headers):
     for district in schools_config["districts"]:
         config = schools_config.copy()
         config["base_url"] = schools_config["base_url_template"].format(district=district)
-        config["current_district"] = district  # 👈 NEW: Pass district explicitly
+        config["current_district"] = district  Pass district explicitly
         
         print(f"\n    📄 schools from {district}")
         district_schools = scrape_site(config, headers)
@@ -136,12 +136,12 @@ def scrape_site(config, headers):
             print(f"        ⏹️  NO ITEMS → END")
             break
         
-        # ✅ CRITICAL FIX: Check pagination BEFORE going to next page
+        # Check pagination BEFORE going to next page
         soup = BeautifulSoup(requests.get(page_url, headers=headers, timeout=15).text, 'html.parser')
         pagination_status = analyze_pagination(soup, config, page)
         print(f"        📄 Pagination: {pagination_status}")
         
-        # ✅ STOP if TRUE LAST PAGE
+        # STOP if TRUE LAST PAGE
         if is_true_last_page(soup, config, page):
             print(f"        ⏹️  ✅ TRUE LAST PAGE → STOPPING!")
             break
@@ -255,7 +255,7 @@ def extract_item(container, config):
     
     fields = config.get("fields", {})
     
-    # ✅ SPECIAL CASE: Handle profile_url FIRST (extracts href, not text)
+    # SPECIAL CASE: Handle profile_url FIRST (extracts href, not text)
     if "profile_url" in fields:
         profile_selectors = [s.strip() for s in fields["profile_url"].split(',')]
         profile_link = None

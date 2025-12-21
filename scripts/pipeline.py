@@ -47,7 +47,7 @@ def run_scraper():
     """🌐 Run web scraper tool."""
     print("🌐 [*] Running scraper...")
     result = subprocess.run([
-        sys.executable, "-m", "scripts.scraper",  # 👈 UPDATED!
+        sys.executable, "-m", "scripts.scraper", 
         "--scrape-all"
     ], capture_output=False, text=True)
     
@@ -86,7 +86,7 @@ def run_preprocessor():
 def run_indexbuilder(rebuild=False):
     """🔗 Run index builder tool."""
     print("🔗 [*] Running index builder...")
-    cmd = [sys.executable, "-m", "scripts.indexbuilder"]  # updated here
+    cmd = [sys.executable, "-m", "scripts.indexbuilder"]
     if rebuild:
         cmd.append("--rebuild")
     result = subprocess.run(cmd, capture_output=False, text=True)
