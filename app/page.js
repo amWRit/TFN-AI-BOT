@@ -177,7 +177,38 @@ export default function Home() {
 
   const [showDemoWarning, setShowDemoWarning] = useState(false);
   const [lastCredsCheck, setLastCredsCheck] = useState(0);
-  
+
+  const QuickButton = ({ query, icon, title, subtitle, color }) => {
+    const baseClasses = "group h-32 p-4 rounded-xl transition-all text-left flex flex-col justify-between";
+    const colorClasses = {
+      pink: "bg-gradient-to-br from-pink-600/20 to-pink-900/20 border border-pink-400/30 hover:border-pink-400/60 hover:bg-gradient-to-br hover:from-pink-600/40 hover:to-pink-900/40",
+      blue: "bg-gradient-to-br from-blue-600/20 to-blue-900/20 border border-blue-400/30 hover:border-blue-400/60 hover:bg-gradient-to-br hover:from-blue-600/40 hover:to-blue-900/40",
+      green: "bg-gradient-to-br from-green-600/20 to-green-900/20 border border-green-400/30 hover:border-green-400/60 hover:bg-gradient-to-br hover:from-green-600/40 hover:to-green-900/40",
+      amber: "bg-gradient-to-br from-amber-600/20 to-amber-900/20 border border-amber-400/30 hover:border-amber-400/60 hover:bg-gradient-to-br hover:from-amber-600/40 hover:to-amber-900/40",
+      purple: "bg-gradient-to-br from-purple-600/20 to-purple-900/20 border border-purple-400/30 hover:border-purple-400/60 hover:bg-gradient-to-br hover:from-purple-600/40 hover:to-purple-900/40",
+      cyan: "bg-gradient-to-br from-cyan-600/20 to-cyan-900/20 border border-cyan-400/30 hover:border-cyan-400/60 hover:bg-gradient-to-br hover:from-cyan-600/40 hover:to-cyan-900/40",
+      rose: "bg-gradient-to-br from-rose-600/20 to-rose-900/20 border border-rose-400/30 hover:border-rose-400/60 hover:bg-gradient-to-br hover:from-rose-600/40 hover:to-rose-900/40",
+      indigo: "bg-gradient-to-br from-indigo-600/20 to-indigo-900/20 border border-indigo-400/30 hover:border-indigo-400/60 hover:bg-gradient-to-br hover:from-indigo-600/40 hover:to-indigo-900/40"
+    };
+    const disabledClasses = "opacity-50 cursor-not-allowed bg-gray-800/50 border-gray-600/50";
+
+    return (
+      <button 
+        onClick={() => processQuery(query)}
+        disabled={showDemoWarning || loading}
+        className={`${baseClasses} ${colorClasses[color] || colorClasses.pink} ${
+          showDemoWarning || loading ? disabledClasses : ''
+        }`}
+      >
+        <div className="text-3xl mb-2">{icon}</div>
+        <div>
+          <div className="font-bold text-white mb-1 text-sm leading-tight line-clamp-1">{title}</div>
+          <div className="text-xs text-gray-400 line-clamp-1">{subtitle}</div>
+        </div>
+      </button>
+    );
+  };
+
   const testCredsAndShowWarning = async () => {
     const now = Date.now();
     // if (now - lastCredsCheck < 300000) return true; //
@@ -510,66 +541,43 @@ export default function Home() {
                 </div>
 
                 {/* Quick Actions */}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 pt-2">
-                  {/* Row 1 */}
-                  <button onClick={() => processQuery('Tell me more about the TFN fellowship program.')} className="group h-32 p-4 rounded-xl bg-gradient-to-br from-pink-600/20 to-pink-900/20 border border-pink-400/30 hover:border-pink-400/60 hover:bg-gradient-to-br hover:from-pink-600/40 hover:to-pink-900/40 transition-all text-left flex flex-col justify-between">
-                    <div className="text-3xl mb-2">🎓</div>
-                    <div>
-                      <div className="font-bold text-white mb-1 text-sm leading-tight line-clamp-1">Fellowship</div>
-                      <div className="text-xs text-gray-400 line-clamp-1">More about it</div>
-                    </div>
-                  </button>
-                  <button onClick={() => processQuery('Who can apply? What are the eligibility requirements?')} className="group h-32 p-4 rounded-xl bg-gradient-to-br from-blue-600/20 to-blue-900/20 border border-blue-400/30 hover:border-blue-400/60 hover:bg-gradient-to-br hover:from-blue-600/40 hover:to-blue-900/40 transition-all text-left flex flex-col justify-between">
-                    <div className="text-3xl mb-2">✅</div>
-                    <div>
-                      <div className="font-bold text-white mb-1 text-sm leading-tight line-clamp-1">Eligibility</div>
-                      <div className="text-xs text-gray-400 line-clamp-1">Who can apply</div>
-                    </div>
-                  </button>
-                  <button onClick={() => processQuery('What is the application process?')} className="group h-32 p-4 rounded-xl bg-gradient-to-br from-green-600/20 to-green-900/20 border border-green-400/30 hover:border-green-400/60 hover:bg-gradient-to-br hover:from-green-600/40 hover:to-green-900/40 transition-all text-left flex flex-col justify-between">
-                    <div className="text-3xl mb-2">📝</div>
-                    <div>
-                      <div className="font-bold text-white mb-1 text-sm leading-tight line-clamp-1">Application</div>
-                      <div className="text-xs text-gray-400 line-clamp-1">Process</div>
-                    </div>
-                  </button>
-                  <button onClick={() => processQuery('What happens after the 2 years of the fellowship?')} className="group h-32 p-4 rounded-xl bg-gradient-to-br from-amber-600/20 to-amber-900/20 border border-amber-400/30 hover:border-amber-400/60 hover:bg-gradient-to-br hover:from-amber-600/40 hover:to-amber-900/40 transition-all text-left flex flex-col justify-between">
-                    <div className="text-3xl mb-2">🚀</div>
-                    <div>
-                      <div className="font-bold text-white mb-1 text-sm leading-tight line-clamp-1">Beyond</div>
-                      <div className="text-xs text-gray-400 line-clamp-1">After 2 years</div>
-                    </div>
-                  </button>
-                  <button onClick={() => processQuery('What is the vision of TFN?')} className="group h-32 p-4 rounded-xl bg-gradient-to-br from-purple-600/20 to-purple-900/20 border border-purple-400/30 hover:border-purple-400/60 hover:bg-gradient-to-br hover:from-purple-600/40 hover:to-purple-900/40 transition-all text-left flex flex-col justify-between">
-                    <div className="text-3xl mb-2">🎯</div>
-                    <div>
-                      <div className="font-bold text-white mb-1 text-sm leading-tight line-clamp-1">Vision</div>
-                      <div className="text-xs text-gray-400 line-clamp-1">Ending...</div>
-                    </div>
-                  </button>
-                  {/* Row 2 */}
-                  <button onClick={() => processQuery('Who are the partners?')} className="group h-32 p-4 rounded-xl bg-gradient-to-br from-cyan-600/20 to-cyan-900/20 border border-cyan-400/30 hover:border-cyan-400/60 hover:bg-gradient-to-br hover:from-cyan-600/40 hover:to-cyan-900/40 transition-all text-left flex flex-col justify-between">
-                    <div className="text-3xl mb-2">🤝</div>
-                    <div>
-                      <div className="font-bold text-white mb-1 text-sm leading-tight line-clamp-1">Partners</div>
-                      <div className="text-xs text-gray-400 line-clamp-1">View partners</div>
-                    </div>
-                  </button>
-                  <button onClick={() => processQuery('Who are the leadership team?')} className="group h-32 p-4 rounded-xl bg-gradient-to-br from-rose-600/20 to-rose-900/20 border border-rose-400/30 hover:border-rose-400/60 hover:bg-gradient-to-br hover:from-rose-600/40 hover:to-rose-900/40 transition-all text-left flex flex-col justify-between">
-                    <div className="text-3xl mb-2">👔</div>
-                    <div>
-                      <div className="font-bold text-white mb-1 text-sm leading-tight line-clamp-1">Leadership Team</div>
-                      <div className="text-xs text-gray-400 line-clamp-1">View</div>
-                    </div>
-                  </button>
-                  <button onClick={() => processQuery('List all alumni')} className="group h-32 p-4 rounded-xl bg-gradient-to-br from-indigo-600/20 to-indigo-900/20 border border-indigo-400/30 hover:border-indigo-400/60 hover:bg-gradient-to-br hover:from-indigo-600/40 hover:to-indigo-900/40 transition-all text-left flex flex-col justify-between">
-                    <div className="text-3xl mb-2">📚</div>
-                    <div>
-                      <div className="font-bold text-white mb-1 text-sm leading-tight line-clamp-1">Alumni</div>
-                      <div className="text-xs text-gray-400 line-clamp-1">View</div>
-                    </div>
-                  </button>
+                  <QuickButton 
+                    query="Tell me more about the TFN fellowship program."
+                    icon="🎓" color="pink" title="Fellowship" subtitle="More about it"
+                  />
+                  <QuickButton 
+                    query="Who can apply? What are the eligibility requirements?"
+                    icon="✅" color="blue" title="Eligibility" subtitle="Who can apply"
+                  />
+                  <QuickButton 
+                    query="What is the application process?"
+                    icon="📝" color="green" title="Application" subtitle="Process"
+                  />
+                  <QuickButton 
+                    query="What happens after the 2 years of the fellowship?"
+                    icon="🚀" color="amber" title="Beyond" subtitle="After 2 years"
+                  />
+                  <QuickButton 
+                    query="What is the vision of TFN?"
+                    icon="🎯" color="purple" title="Vision" subtitle="Ending..."
+                  />
+                  <QuickButton 
+                    query="Who are the partners?"
+                    icon="🤝" color="cyan" title="Partners" subtitle="View partners"
+                  />
+                  <QuickButton 
+                    query="Who are the leadership team?"
+                    icon="👔" color="rose" title="Leadership Team" subtitle="View"
+                  />
+                  <QuickButton 
+                    query="List all alumni"
+                    icon="📚" color="indigo" title="Alumni" subtitle="View"
+                  />
                 </div>
+                {/* Quick Actions */}
+
               </div>
             </div>
           ) : (
@@ -677,7 +685,7 @@ export default function Home() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !loading && input.trim() && !credsFailed) {
+                if (e.key === 'Enter' && !loading && input.trim() && !showDemoWarning) {
                   e.preventDefault();
                   processQuery(input);
                 }
@@ -688,7 +696,7 @@ export default function Home() {
             />
             <button
               onClick={() => processQuery(input)}
-              disabled={loading || !input.trim() || credsFailed}
+              disabled={loading || !input.trim() || showDemoWarning}
               className="px-6 py-3 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 disabled:from-gray-600 disabled:to-gray-700 disabled:opacity-50 rounded-xl text-white font-semibold transition-all shadow-lg shadow-purple-500/20"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
