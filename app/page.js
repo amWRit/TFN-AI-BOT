@@ -482,7 +482,7 @@ export default function Home() {
               className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-600/40 to-blue-600/40 border border-cyan-400/30 hover:border-cyan-400/60 text-sm font-semibold text-white hover:bg-gradient-to-r hover:from-cyan-600/60 hover:to-blue-600/60 transition-all flex items-center gap-2"
             >
               <Settings className="w-4 h-4" />
-              AWS Settings
+              Settings
             </Link>
           </div>
 

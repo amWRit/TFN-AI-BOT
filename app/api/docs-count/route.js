@@ -4,28 +4,26 @@ import path from 'path';
 export async function GET() {
   try {
     const combinedPath = path.join(process.cwd(), 'public', 'json', 'combined_data.json');
-    
     const data = await fs.readFile(combinedPath, 'utf8');
     const combined = JSON.parse(data);
     
-    // EXACT same logic as your Python json_to_documents()
     let totalDocs = 0;
+    const breakdown = {};  // 👈 ADD THIS!
     
-    // Count structured/scraped sections
     for (const section in combined) {
-      if (section === 'unstructured_chunks') {
-        totalDocs += combined[section]?.length || 0;
-      } else if (Array.isArray(combined[section])) {
-        totalDocs += combined[section].length;
+      if (Array.isArray(combined[section])) {
+        const count = combined[section].length;
+        breakdown[section] = count;  // 👈 STORE BREAKDOWN!
+        totalDocs += count;
       }
     }
     
     return Response.json({ 
       total: totalDocs,
-      message: `${totalDocs} documents ready (scraped + structured + unstructured)`
+      breakdown,  // 👈 THIS MAKES BREAKDOWN SHOW!
+      message: `${totalDocs} documents ready`
     });
-  } catch (error) {
-    console.error('Docs count error:', error);
-    return Response.json({ total: 0, message: 'No index found' });
+  } catch {
+    return Response.json({ total: 0, breakdown: {} });
   }
 }
