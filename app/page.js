@@ -260,6 +260,17 @@ export default function Home() {
   // }, []);
 
   useEffect(() => {
+    fetch('/api/docs-count')
+      .then(res => res.json())
+      .then(data => {
+        console.log('📊', data.message);  // "47 documents indexed in FAISS"
+        setDocsCount(data.total);         // Shows REAL number!
+      })
+      .catch(() => setDocsCount(0));
+  }, []);
+
+
+  useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 

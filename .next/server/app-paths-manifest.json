@@ -1,6 +1,6 @@
 {
   "/page": "app/page.js",
-  "/api/test-aws/route": "app/api/test-aws/route.js",
   "/settings/page": "app/settings/page.js",
-  "/api/rag-alumni/route": "app/api/rag-alumni/route.js"
+  "/api/test-aws/route": "app/api/test-aws/route.js",
+  "/api/docs-count/route": "app/api/docs-count/route.js"
 }
