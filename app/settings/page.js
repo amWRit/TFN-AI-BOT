@@ -142,6 +142,7 @@ export default function Settings() {
                   onClick={() => {
                     localStorage.clear();
                     sessionStorage.clear();
+                    localStorage.removeItem('awsCredsTest');
                     alert('✅ All cache cleared! Refresh chat to test.');
                   }}
                   className="w-full px-6 py-2 bg-orange-500/80 hover:bg-orange-600 text-white rounded-xl font-medium transition-all"
