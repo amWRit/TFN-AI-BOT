@@ -180,7 +180,7 @@ export default function Home() {
   
   const testCredsAndShowWarning = async () => {
     const now = Date.now();
-    // if (now - lastCredsCheck < 300000) return true; // 👈 Cache hit = creds OK
+    // if (now - lastCredsCheck < 300000) return true; //
     const CACHE_KEY = 'awsCredsTest';
     const CACHE_TTL = 300000; // 5min
     try {
@@ -205,7 +205,7 @@ export default function Home() {
         setShowDemoWarning(false);
         localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: now, failed: false }));
         // setLastCredsCheck(now);
-        return false;  // 👈 ENV creds OK
+        return false;  // ENV creds OK
       }
       
       // Test sessionStorage
@@ -227,10 +227,10 @@ export default function Home() {
 
           if (sessionResult.success) {
             setShowDemoWarning(false);
-            return false;  // 👈 Session creds OK
+            return false;  // Session creds OK
           } else {
             setShowDemoWarning(true);
-            return true;   // 👈 Session creds FAILED
+            return true;   // Session creds FAILED
           }
         }
         else {
@@ -241,13 +241,13 @@ export default function Home() {
       // No creds found
       setShowDemoWarning(true);
       localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: now, failed: true }));
-      return true;  // 👈 No creds = FAILED
+      return true;  // No creds = FAILED
       
     } catch (error) {
       console.error('Creds test error:', error);
       localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: now, failed: true }));
       setShowDemoWarning(true);
-      return true;  // 👈 Test error = FAILED
+      return true;  // Test error = FAILED
     }
   };
 
@@ -263,8 +263,8 @@ export default function Home() {
     fetch('/api/docs-count')
       .then(res => res.json())
       .then(data => {
-        console.log('📊', data.message);  // "47 documents indexed in FAISS"
-        setDocsCount(data.total);         // Shows REAL number!
+        console.log('📊', data.message);  
+        setDocsCount(data.total);         
       })
       .catch(() => setDocsCount(0));
   }, []);
@@ -275,7 +275,7 @@ export default function Home() {
   }, [messages, loading]);
 
   useEffect(() => {
-    testCredsAndShowWarning();  // 👈 CALL THE FUNCTION
+    testCredsAndShowWarning();  // CALL THE FUNCTION
   }, []);
 
   const processQuery = async (query, showAll = false, replaceLast = false) => {
@@ -395,16 +395,16 @@ export default function Home() {
     return grouped;
   };
 
-  // Render structured data as cards - FIXED VERSION
+  // Render structured data as cards
   const renderStructuredData = (msg) => {
     const groupedItems = getStructuredItems(msg);
     
     if (Object.keys(groupedItems).length === 0) return null;
 
-    // FIXED: Correct data access for hasMore and totalCount (top-level in msg.content)
+    // Correct data access for hasMore and totalCount (top-level in msg.content)
     const hasMore = msg.content?.hasMore;
     const totalCount = msg.content?.totalCount;
-    // FIXED: Get original query from this specific assistant message
+    // Get original query from this specific assistant message
     const originalQuery = msg.originalQuery;
 
     return (

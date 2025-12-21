@@ -129,7 +129,7 @@ class RAGIndexBuilder:
         if 'unstructured_chunks' in combined_data:
             for chunk in combined_data['unstructured_chunks']:
                 documents.append(Document(
-                    page_content=chunk['chunk'],  # 👈 FIXED: 'chunk' not 'content'
+                    page_content=chunk['chunk'],
                     metadata={
                         'source': chunk['source'],
                         'page': chunk.get('page', 0),

@@ -11,7 +11,7 @@ import json
 import argparse
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from langchain_core.output_parsers import PydanticOutputParser  # ✅ REQUIRED
+from langchain_core.output_parsers import PydanticOutputParser
 import boto3
 from langchain_community.document_loaders import PyPDFLoader
 
@@ -76,7 +76,7 @@ class StructuredPreprocessor:
         self.structured_dir = structured_dir or os.path.join(project_root, "data", "structured")
         self.output_json = output_json or os.path.join(project_root, "public", "json", "structured_data.json")
         
-        # Initialize AWS Bedrock (SAME as OLD)
+        # Initialize AWS Bedrock
         env_path = os.path.join(os.path.dirname(__file__), '..', '.env.local')
         load_dotenv(env_path)
         
@@ -90,7 +90,7 @@ class StructuredPreprocessor:
         
         os.makedirs(os.path.dirname(self.output_json), exist_ok=True)
     
-    def _extract_structured_from_file(self, filename):  # 👈 EXACT OLD LOGIC!
+    def _extract_structured_from_file(self, filename):
         """Extract structured data from a single PDF file (WORKING OLD CODE)."""
         if filename not in DOCUMENT_TYPES_CONFIG:
             print(f"    [!] No configuration for {filename}. Skipping...")
@@ -115,7 +115,6 @@ class StructuredPreprocessor:
             system_prompt_text = config["system_prompt"].format(format_instructions=format_instructions)
             user_message = f"Text: {raw_text}"
             
-            # 👈 CRITICAL: OLD WORKING Bedrock API CALL
             messages = [{"role": "user", "content": [{"text": user_message}]}]
             body = {
                 "messages": messages,
@@ -129,7 +128,7 @@ class StructuredPreprocessor:
                 body=json.dumps(body)
             )
             
-            # Parse response (SAME OLD LOGIC)
+            # Parse response
             response_body = json.loads(response['body'].read())
             if 'output' in response_body and 'message' in response_body['output']:
                 response_text = response_body['output']['message']['content'][0]['text']

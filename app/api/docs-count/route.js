@@ -8,19 +8,19 @@ export async function GET() {
     const combined = JSON.parse(data);
     
     let totalDocs = 0;
-    const breakdown = {};  // 👈 ADD THIS!
+    const breakdown = {};
     
     for (const section in combined) {
       if (Array.isArray(combined[section])) {
         const count = combined[section].length;
-        breakdown[section] = count;  // 👈 STORE BREAKDOWN!
+        breakdown[section] = count;
         totalDocs += count;
       }
     }
     
     return Response.json({ 
       total: totalDocs,
-      breakdown,  // 👈 THIS MAKES BREAKDOWN SHOW!
+      breakdown,
       message: `${totalDocs} documents ready`
     });
   } catch {
