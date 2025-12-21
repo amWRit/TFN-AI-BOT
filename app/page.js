@@ -716,7 +716,7 @@ export default function Home() {
             />
             <button
               onClick={() => processQuery(input)}
-              disabled={loading || !input.trim() || showDemoWarning || credsFailed}
+              disabled={loading || !input.trim() || showDemoWarning}
               className="px-6 py-3 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 disabled:from-gray-600 disabled:to-gray-700 disabled:opacity-50 rounded-xl text-white font-semibold transition-all shadow-lg shadow-purple-500/20"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
